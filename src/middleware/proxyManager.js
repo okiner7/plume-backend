@@ -131,6 +131,7 @@ class ProxyPool {
     return this.proxies.map((p, i) => ({
       index: i,
       url: p.url.replace(/:[^:@]+@/, ':***@'),
+      _url: p.url, // реальный URL для health checker
       fails: p.fails,
       status: p.cooldownUntil > now ? `cooldown ${Math.round((p.cooldownUntil - now) / 1000)}s` : 'active'
     }))
@@ -155,4 +156,4 @@ function getProxyStats() {
   return { total: pool.count, healthy: pool.healthy, proxies: pool.getStats() }
 }
 
-module.exports = { getRandomProxyAgent, markProxyFailed, markProxySuccess, getProxyStats }
+module.exports = { getRandomProxyAgent, markProxyFailed, markProxySuccess, getProxyStats, _pool: pool }
