@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: lunex-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      # Пробрасываем папку с базой данных и прокси наружу,
+      # чтобы при перезапуске/обновлении контейнера данные не удалились
+      - ./data:/app/data
+      - ./proxies.txt:/app/proxies.txt
+      - ./.env:/app/.env
+    environment:
+      - NODE_ENV=production
