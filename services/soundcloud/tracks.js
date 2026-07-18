@@ -2,7 +2,8 @@ const { request, fetchAll } = require('./client')
 const { formatTrack } = require('./formatters')
 
 async function getUserTracksById(id) {
-  const collection = await fetchAll(`/users/${id}/tracks?limit=20`)
+  // Лимитируем до 50 треков (максимум 1-2 запроса), чтобы не парсить 1000 треков
+  const collection = await fetchAll(`/users/${id}/tracks?limit=50`, 50)
   return collection.map(formatTrack).filter(t => t !== null)
 }
 
@@ -47,12 +48,14 @@ async function getRelatedTracks(trackId) {
   }
 }
 
-async function searchTracksByArtist(artistName, limit = 20) {
+async function searchTracksByArtist(artistName, limit = 50) {
   try {
-    const { fetchAll } = require('./client')
+    const { request } = require('./client')
     const { formatTrack } = require('./formatters')
     const encoded = encodeURIComponent(artistName)
-    const collection = await fetchAll(`/search/tracks?q=${encoded}&limit=${limit}`)
+    // Делаем ровно 1 запрос (limit=50) вместо пагинации до 1000 треков
+    const data = await request(`/search/tracks?q=${encoded}&limit=${limit}`)
+    const collection = data.collection || (Array.isArray(data) ? data : [])
     return collection.map(formatTrack).filter(t => t !== null && t.title !== 'Untitled Track')
   } catch (error) {
     console.error('SC_ARTIST_SEARCH_ERROR:', error.message)
