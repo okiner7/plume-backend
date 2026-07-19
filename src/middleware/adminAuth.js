@@ -24,7 +24,7 @@ const adminAuth = async (req, res, next) => {
 
     // Check DB for Developer badge just in case
     const badges = await userStore.getBadges(decoded.provider_id)
-    if (badges && badges.includes('Developer')) {
+    if (badges && badges.some(b => b.id === 'developer')) {
       req.user = decoded
       return next()
     }

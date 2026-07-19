@@ -12,6 +12,14 @@ const router = Router()
 
 router.use(authRequired)
 
+function isValidArtworkUrl(url) {
+  if (!url) return false
+  try {
+    const u = new URL(url)
+    return ['https:', 'http:'].includes(u.protocol)
+  } catch { return false }
+}
+
 function sanitizeTrack(t) {
   if (!t || typeof t !== 'object' || Array.isArray(t)) throw new Error('Invalid track format')
   return {
@@ -20,7 +28,7 @@ function sanitizeTrack(t) {
     title: String(t.title || '').slice(0, 200),
     artist: String(t.artist || '').slice(0, 200),
     duration: Number(t.duration) || 0,
-    artwork: String(t.artwork || '').slice(0, 1000),
+    artwork: isValidArtworkUrl(t.artwork) ? String(t.artwork).slice(0, 1000) : '',
     url: String(t.url || '').slice(0, 1000)
   }
 }

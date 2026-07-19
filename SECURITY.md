@@ -33,12 +33,12 @@
 | [LNX-2026-015](#lnx-2026-015) | 🟡 MEDIUM (6.5) | Missing object bounds causing Denial of Service (DB Bloat) | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-016](#lnx-2026-016) | 🟠 HIGH (7.4) | Open Redirect in Google OAuth Callback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-017](#lnx-2026-017) | 🟡 MEDIUM (5.9) | HMAC Timing Attack in Signature Verification | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-018](#lnx-2026-018) | 🔴 HIGH (8.2) | APP_SECRET hardcoded in Electron main.js (plaintext) | ⚠️ Partial | Requires env injection |
-| [LNX-2026-019](#lnx-2026-019) | 🟠 HIGH (7.5) | Admin badge check via DB allows badge manipulation | ⏳ Backlog | Design risk |
+| [LNX-2026-018](#lnx-2026-018) | 🔴 HIGH (8.2) | APP_SECRET hardcoded in Electron main.js (plaintext) | ✅ Fixed | `security/fix-018-023` |
+| [LNX-2026-019](#lnx-2026-019) | 🟠 HIGH (7.5) | Admin badge check via DB allows badge manipulation | ✅ Fixed | `security/fix-018-023` |
 | [LNX-2026-020](#lnx-2026-020) | 🟡 MEDIUM (6.1) | `admin/logs` leaks internal server state to admins | ⏳ Backlog | Accepted risk |
-| [LNX-2026-021](#lnx-2026-021) | 🟡 MEDIUM (5.8) | `contentSecurityPolicy: false` disables CSP entirely | ⏳ Backlog | Admin panel only |
-| [LNX-2026-022](#lnx-2026-022) | 🟡 MEDIUM (5.5) | `artwork` URL in track data not validated — SSRF vector | ⏳ Backlog | No server-side fetch |
-| [LNX-2026-023](#lnx-2026-023) | 🟢 LOW (3.1) | Discord RPC `track.title` sent without length limit | ⏳ Backlog | No server impact |
+| [LNX-2026-021](#lnx-2026-021) | 🟡 MEDIUM (5.8) | `contentSecurityPolicy: false` disables CSP entirely | ✅ Fixed | `security/fix-018-023` |
+| [LNX-2026-022](#lnx-2026-022) | 🟡 MEDIUM (5.5) | `artwork` URL in track data not validated — SSRF vector | ✅ Fixed | `security/fix-018-023` |
+| [LNX-2026-023](#lnx-2026-023) | 🟢 LOW (3.1) | Discord RPC `track.title` sent without length limit | ✅ Fixed | `security/fix-018-023` |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
