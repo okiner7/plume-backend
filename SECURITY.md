@@ -43,6 +43,9 @@
 | [LNX-2026-025](#lnx-2026-025) | 🟡 MEDIUM (5.3) | `settingsStore.upsert` merges full user payload without field whitelist | ✅ Fixed | `security/fix-024-027` |
 | [LNX-2026-026](#lnx-2026-026) | 🟢 LOW (3.5) | `POST /themes/:id/download` has no rate limit — counter can be inflated | ✅ Fixed | `security/fix-024-027` |
 | [LNX-2026-027](#lnx-2026-027) | 🟡 MEDIUM (5.0) | `/api/yt/upnext` history parameter unbounded — DoS via huge list | ✅ Fixed | `security/fix-024-027` |
+| [LNX-2026-028](#lnx-2026-028) | 🟠 HIGH (7.1) | CSS Injection via unsanitized community theme CSS variables | ✅ Fixed | `security/fix-028-030` |
+| [LNX-2026-029](#lnx-2026-029) | 🟢 LOW (3.2) | Queue unbounded — `localStorage` bloat / DoS | ✅ Fixed | `security/fix-028-030` |
+| [LNX-2026-030](#lnx-2026-030) | 🟢 LOW (3.2) | `useStats` topTracks/topArtists unbounded — `localStorage` bloat | ✅ Fixed | `security/fix-028-030` |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
