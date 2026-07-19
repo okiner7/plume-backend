@@ -18,34 +18,34 @@
 |---|---|---|---|---|
 | [LNX-2026-001](#lnx-2026-001) | 🔴 CRITICAL (9.8) | Hardcoded APP_SECRET in source code | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-002](#lnx-2026-002) | 🔴 CRITICAL (9.1) | Hardcoded JWT_SECRET fallback | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-013](#lnx-2026-013) | 🔴 HIGH (8.5) | Open SSRF via `/api/sc/stream` fallback | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-018](#lnx-2026-018) | 🔴 HIGH (8.2) | APP_SECRET hardcoded in Electron main.js (plaintext) | ✅ Fixed | `security/fix-018-023` |
 | [LNX-2026-003](#lnx-2026-003) | 🔴 HIGH (8.1) | Unencrypted HTTP transport (no TLS) | ⚠️ Partial | Needs TLS cert on server |
+| [LNX-2026-024](#lnx-2026-024) | 🟠 HIGH (7.4) | Auth code generated with `Math.random()` (not cryptographically secure) | ✅ Fixed | `security/fix-024-027` |
+| [LNX-2026-016](#lnx-2026-016) | 🟠 HIGH (7.4) | Open Redirect in Google OAuth Callback | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-028](#lnx-2026-028) | 🟠 HIGH (7.1) | CSS Injection via unsanitized community theme CSS variables | ✅ Fixed | `security/fix-028-030` |
 | [LNX-2026-004](#lnx-2026-004) | 🟠 HIGH (7.5) | `/api/status` exposes internal infrastructure | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-019](#lnx-2026-019) | 🟠 HIGH (7.5) | Admin badge check via DB allows badge manipulation | ✅ Fixed | `security/fix-018-023` |
+| [LNX-2026-014](#lnx-2026-014) | 🟠 HIGH (7.2) | NoSQL Injection via Object parameters in DELETE | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-005](#lnx-2026-005) | 🟠 HIGH (7.3) | No rate limit on `/auth/verify-code` (bruteforce) | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-006](#lnx-2026-006) | 🟠 HIGH (6.8) | JWT tokens without revocation capability | ⏳ Backlog | Needs refresh token flow |
 | [LNX-2026-007](#lnx-2026-007) | 🟠 HIGH (6.5) | Telegram Bot Token exposed in avatar URL | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-015](#lnx-2026-015) | 🟡 MEDIUM (6.5) | Missing object bounds causing Denial of Service (DB Bloat) | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-020](#lnx-2026-020) | 🟡 MEDIUM (6.1) | `admin/logs` leaks internal server state to admins | ⏳ Backlog | Accepted risk |
 | [LNX-2026-008](#lnx-2026-008) | 🟡 MEDIUM (5.9) | CORS wildcard allows all origins | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-017](#lnx-2026-017) | 🟡 MEDIUM (5.9) | HMAC Timing Attack in Signature Verification | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-021](#lnx-2026-021) | 🟡 MEDIUM (5.8) | `contentSecurityPolicy: false` disables CSP entirely | ✅ Fixed | `security/fix-018-023` |
+| [LNX-2026-022](#lnx-2026-022) | 🟡 MEDIUM (5.5) | `artwork` URL in track data not validated — SSRF vector | ✅ Fixed | `security/fix-018-023` |
 | [LNX-2026-009](#lnx-2026-009) | 🟡 MEDIUM (5.4) | Unsanitized user input stored in DB | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-025](#lnx-2026-025) | 🟡 MEDIUM (5.3) | `settingsStore.upsert` merges full user payload without field whitelist | ✅ Fixed | `security/fix-024-027` |
+| [LNX-2026-027](#lnx-2026-027) | 🟡 MEDIUM (5.0) | `/api/yt/upnext` history parameter unbounded — DoS via huge list | ✅ Fixed | `security/fix-024-027` |
 | [LNX-2026-010](#lnx-2026-010) | 🟡 MEDIUM (4.3) | `/api/stats/top-tracks` unbounded limit | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-011](#lnx-2026-011) | 🟡 MEDIUM (4.2) | Missing `auth_date` check in Telegram Widget auth | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-012](#lnx-2026-012) | 🟢 LOW (3.7) | JWT stored in `localStorage` (XSS accessible) | ⏳ Backlog | Low risk in Electron |
-| [LNX-2026-013](#lnx-2026-013) | 🔴 HIGH (8.5) | Open SSRF via `/api/sc/stream` fallback | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-014](#lnx-2026-014) | 🟠 HIGH (7.2) | NoSQL Injection via Object parameters in DELETE | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-015](#lnx-2026-015) | 🟡 MEDIUM (6.5) | Missing object bounds causing Denial of Service (DB Bloat) | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-016](#lnx-2026-016) | 🟠 HIGH (7.4) | Open Redirect in Google OAuth Callback | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-017](#lnx-2026-017) | 🟡 MEDIUM (5.9) | HMAC Timing Attack in Signature Verification | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-018](#lnx-2026-018) | 🔴 HIGH (8.2) | APP_SECRET hardcoded in Electron main.js (plaintext) | ✅ Fixed | `security/fix-018-023` |
-| [LNX-2026-019](#lnx-2026-019) | 🟠 HIGH (7.5) | Admin badge check via DB allows badge manipulation | ✅ Fixed | `security/fix-018-023` |
-| [LNX-2026-020](#lnx-2026-020) | 🟡 MEDIUM (6.1) | `admin/logs` leaks internal server state to admins | ⏳ Backlog | Accepted risk |
-| [LNX-2026-021](#lnx-2026-021) | 🟡 MEDIUM (5.8) | `contentSecurityPolicy: false` disables CSP entirely | ✅ Fixed | `security/fix-018-023` |
-| [LNX-2026-022](#lnx-2026-022) | 🟡 MEDIUM (5.5) | `artwork` URL in track data not validated — SSRF vector | ✅ Fixed | `security/fix-018-023` |
-| [LNX-2026-023](#lnx-2026-023) | 🟢 LOW (3.1) | Discord RPC `track.title` sent without length limit | ✅ Fixed | `security/fix-018-023` |
-| [LNX-2026-024](#lnx-2026-024) | 🟠 HIGH (7.4) | Auth code generated with `Math.random()` (not cryptographically secure) | ✅ Fixed | `security/fix-024-027` |
-| [LNX-2026-025](#lnx-2026-025) | 🟡 MEDIUM (5.3) | `settingsStore.upsert` merges full user payload without field whitelist | ✅ Fixed | `security/fix-024-027` |
 | [LNX-2026-026](#lnx-2026-026) | 🟢 LOW (3.5) | `POST /themes/:id/download` has no rate limit — counter can be inflated | ✅ Fixed | `security/fix-024-027` |
-| [LNX-2026-027](#lnx-2026-027) | 🟡 MEDIUM (5.0) | `/api/yt/upnext` history parameter unbounded — DoS via huge list | ✅ Fixed | `security/fix-024-027` |
-| [LNX-2026-028](#lnx-2026-028) | 🟠 HIGH (7.1) | CSS Injection via unsanitized community theme CSS variables | ✅ Fixed | `security/fix-028-030` |
 | [LNX-2026-029](#lnx-2026-029) | 🟢 LOW (3.2) | Queue unbounded — `localStorage` bloat / DoS | ✅ Fixed | `security/fix-028-030` |
 | [LNX-2026-030](#lnx-2026-030) | 🟢 LOW (3.2) | `useStats` topTracks/topArtists unbounded — `localStorage` bloat | ✅ Fixed | `security/fix-028-030` |
+| [LNX-2026-023](#lnx-2026-023) | 🟢 LOW (3.1) | Discord RPC `track.title` sent without length limit | ✅ Fixed | `security/fix-018-023` |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
