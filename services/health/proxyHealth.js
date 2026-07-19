@@ -43,7 +43,7 @@ async function checkSingleProxy(proxy) {
 
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: err.message, agent }
+    return { ok: false, error: err.message, agent, type: 'offline' }
   }
 }
 
@@ -66,16 +66,22 @@ async function checkAll() {
 
     if (result.status === 'rejected' || !result.value?.ok) {
       const err = result.value?.error || result.reason?.message || 'unknown'
-      newFails++
+      const type = result.value?.type
 
-      // Помечаем в пуле если не в cooldown уже
-      if (!wasInCooldown && proxy._url) {
-        // Принудительно добавляем страйк через markFailed
-        for (let s = 0; s < 5; s++) markProxyFailed(proxy._url)
+      if (type === 'offline') {
+        if (proxy._url) _pool.markOffline(proxy._url)
+      } else {
+        newFails++
+        // Помечаем в пуле если не в cooldown уже
+        if (!wasInCooldown && proxy._url) {
+          // Принудительно добавляем страйк через markFailed
+          for (let s = 0; s < 5; s++) markProxyFailed(proxy._url)
+        }
       }
 
       console.warn(`[ProxyHealth] ❌ Proxy #${i} (${proxy.url}) — ${err}`)
     } else {
+      if (proxy._url) _pool.markOnline(proxy._url)
       if (wasInCooldown) newRecoveries++
       if (result.value.warn) {
         console.warn(`[ProxyHealth] ⚠️  Proxy #${i} — ${result.value.warn}`)
@@ -84,10 +90,11 @@ async function checkAll() {
   })
 
   const freshStats = getProxyStats()
-  const activeCount = freshStats.proxies.filter(p => !p.status.startsWith('cooldown')).length
-  const cooldownCount = freshStats.total - activeCount
+  const activeCount = freshStats.proxies.filter(p => p.status === 'active').length
+  const cooldownCount = freshStats.proxies.filter(p => p.status.startsWith('cooldown')).length
+  const offlineCount = freshStats.proxies.filter(p => p.status === 'offline').length
 
-  // Все в cooldown — тревога
+  // Все в cooldown/offline — тревога
   if (activeCount === 0 && freshStats.total > 0) {
     if (overallHealthy) {
       overallHealthy = false
@@ -116,14 +123,15 @@ async function checkAll() {
   console.log(
     `[ProxyHealth] Pool: ${activeCount}/${freshStats.total} active` +
     (cooldownCount ? `, ${cooldownCount} in cooldown` : '') +
-    (newFails ? `, ${newFails} failed this check` : '')
+    (offlineCount ? `, ${offlineCount} offline` : '') +
+    (newFails ? `, ${newFails} blocked this check` : '')
   )
 }
 
 function isHealthy() {
   const stats = getProxyStats()
   if (stats.total === 0) return true // нет прокси — не наша проблема
-  const activeCount = stats.proxies.filter(p => !p.status.startsWith('cooldown')).length
+  const activeCount = stats.proxies.filter(p => p.status === 'active').length
   return activeCount > 0
 }
 

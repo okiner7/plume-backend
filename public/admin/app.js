@@ -222,9 +222,15 @@ async function fetchProxies() {
     
     proxies.forEach(p => {
       const isCooldown = p.status.startsWith('cooldown')
-      const statusHtml = isCooldown 
-        ? `<span class="badge danger" style="background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${p.status.toUpperCase()}</span>` 
-        : `<span class="badge success" style="background: rgba(50, 215, 75, 0.1); color: var(--success); border: 1px solid rgba(50, 215, 75, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">ACTIVE</span>`
+      const isOffline = p.status === 'offline'
+      let statusHtml = ''
+      if (isOffline) {
+        statusHtml = `<span class="badge" style="background: var(--surface-light); color: var(--text-muted); border: 1px solid var(--border); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">OFFLINE</span>`
+      } else if (isCooldown) {
+        statusHtml = `<span class="badge danger" style="background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${p.status.toUpperCase()}</span>` 
+      } else {
+        statusHtml = `<span class="badge success" style="background: rgba(50, 215, 75, 0.1); color: var(--success); border: 1px solid rgba(50, 215, 75, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">ACTIVE</span>`
+      }
       
       const actionHtml = `<button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="removeProxy('${p._url || p.url}')">Remove</button>`
       const displayIp = (p.address || p.url || 'Unknown').replace(/.*@/, '')

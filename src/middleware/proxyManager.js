@@ -128,6 +128,7 @@ class ProxyPool {
       attempts++
 
       const proxy = this.proxies[idx]
+      if (proxy.isOffline) continue
       if (proxy.cooldownUntil > now) continue
       if (proxy.country && forbiddenCountries.includes(proxy.country)) continue
 
@@ -135,9 +136,10 @@ class ProxyPool {
     }
 
     const best = [...this.proxies]
+      .filter(p => !p.isOffline)
       .filter(p => !p.country || !forbiddenCountries.includes(p.country))
       .sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0] 
-      || [...this.proxies].sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0]
+      || [...this.proxies].filter(p => !p.isOffline).sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0]
 
     console.warn('[ProxyPool] Using fallback proxy in getCountryAwareAgent')
     return { agent: best?.agent || null, country: best?.country || null }
@@ -171,17 +173,39 @@ class ProxyPool {
     }
   }
 
+  markOffline(agentOrUrl) {
+    const proxy = typeof agentOrUrl === 'string' 
+      ? this.proxies.find(p => p.url === agentOrUrl)
+      : this.proxies.find(p => p.agent === agentOrUrl)
+      
+    if (proxy && !proxy.isOffline) {
+      proxy.isOffline = true
+      console.warn(`[ProxyPool] Proxy ${proxy.url.replace(/:[^:@]+@/, ':***@')} → OFFLINE`)
+    }
+  }
+
+  markOnline(agentOrUrl) {
+    const proxy = typeof agentOrUrl === 'string' 
+      ? this.proxies.find(p => p.url === agentOrUrl)
+      : this.proxies.find(p => p.agent === agentOrUrl)
+      
+    if (proxy) proxy.isOffline = false
+  }
+
   // Вызвать при успешном запросе
   markSuccess(agentOrUrl) {
     const proxy = typeof agentOrUrl === 'string' 
       ? this.proxies.find(p => p.url === agentOrUrl)
       : this.proxies.find(p => p.agent === agentOrUrl)
       
-    if (proxy) proxy.fails = 0
+    if (proxy) {
+      proxy.fails = 0
+      proxy.isOffline = false
+    }
   }
 
   get count()    { return this.proxies.length }
-  get healthy()  { return this.proxies.filter(p => p.cooldownUntil < Date.now()).length }
+  get healthy()  { return this.proxies.filter(p => !p.isOffline && p.cooldownUntil < Date.now()).length }
 
   getStats() {
     const now = Date.now()
@@ -191,7 +215,7 @@ class ProxyPool {
       _url: p.url, // реальный URL для health checker
       country: p.country,
       fails: p.fails,
-      status: p.cooldownUntil > now ? `cooldown ${Math.round((p.cooldownUntil - now) / 1000)}s` : 'active'
+      status: p.isOffline ? 'offline' : (p.cooldownUntil > now ? `cooldown ${Math.round((p.cooldownUntil - now) / 1000)}s` : 'active')
     }))
   }
 
