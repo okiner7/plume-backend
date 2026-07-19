@@ -15,6 +15,14 @@ router.get('/google', (req, res) => {
   res.redirect(google.getAuthUrl(state))
 })
 
+// Разрешённые префиксы для callback (локальный сервер Electron и deep link)
+const ALLOWED_CALLBACK_PREFIXES = ['http://localhost:', 'https://localhost:', 'lunex://']
+
+function isSafeCallback(url) {
+  if (!url) return false
+  return ALLOWED_CALLBACK_PREFIXES.some(prefix => url.startsWith(prefix))
+}
+
 router.get('/google/callback', asyncHandler(async (req, res) => {
   const { code, state } = req.query
   const callback = req.query.callback || state
@@ -41,7 +49,8 @@ router.get('/google/callback', asyncHandler(async (req, res) => {
     avatar: profile.avatar
   })
 
-  const redirectUrl = callback || FRONTEND_URL
+  // BUG-01 fix: валидируем callback чтобы предотвратить Open Redirect
+  const redirectUrl = isSafeCallback(callback) ? callback : FRONTEND_URL
   res.redirect(`${redirectUrl}?token=${token}`)
 }))
 

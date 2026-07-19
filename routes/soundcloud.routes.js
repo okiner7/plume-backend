@@ -47,11 +47,8 @@ router.get('/stream', asyncHandler(async (req) => {
         }
       }
 
-      if (foundUrl) return foundUrl
-      throw new Error('No valid stream found for track')
-    } catch (err) {
-      throw err
-    }
+  if (foundUrl) return foundUrl
+  throw new Error('No valid stream found for track')
   }
 
   // Fallback for when only url is provided (should rarely happen now)

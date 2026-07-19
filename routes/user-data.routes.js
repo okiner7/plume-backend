@@ -104,7 +104,7 @@ router.put('/settings', asyncHandler(async (req) => {
 
 router.get('/search-history', asyncHandler(async (req) => {
   const userId = getUserId(req)
-  const limit = parseInt(req.query.limit) || 10
+  const limit = Math.min(parseInt(req.query.limit) || 10, 200)
   return await searchHistoryStore.getRecent(userId, limit)
 }))
 
@@ -125,7 +125,7 @@ router.delete('/search-history', asyncHandler(async (req) => {
 
 router.get('/listening-history', asyncHandler(async (req) => {
   const userId = getUserId(req)
-  const limit = parseInt(req.query.limit) || 50
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200)
   return await listeningHistoryStore.getRecent(userId, limit)
 }))
 

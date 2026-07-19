@@ -61,8 +61,6 @@ async function getRelatedTracks(trackId) {
 
 async function searchTracksByArtist(artistName, limit = 50) {
   try {
-    const { request } = require('./client')
-    const { formatTrack } = require('./formatters')
     const encoded = encodeURIComponent(artistName)
     // Делаем ровно 1 запрос (limit=50) вместо пагинации до 1000 треков
     const data = await request(`/search/tracks?q=${encoded}&limit=${limit}`)
