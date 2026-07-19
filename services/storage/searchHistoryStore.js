@@ -19,6 +19,8 @@ async function add(userId, query) {
       if (err) return reject(err)
       await trim(userId)
       await statsStore.incrementSearchCount().catch(console.error)
+      const userStore = require('./userStore')
+      await userStore.incrementUserStat(userId, 'totalSearches').catch(console.error)
       const recent = await getRecent(userId, 10)
       resolve(recent)
     })

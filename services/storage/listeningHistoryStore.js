@@ -37,6 +37,8 @@ async function add(userId, track) {
       await trim(userId)
       await statsStore.incrementListenCount().catch(console.error)
       await statsStore.incrementTrackPlay(track).catch(console.error)
+      const userStore = require('./userStore')
+      await userStore.incrementUserStat(userId, 'totalListens').catch(console.error)
       resolve(doc)
     })
   })

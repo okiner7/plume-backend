@@ -360,8 +360,8 @@ async function openUserModal(id) {
         badgesHtml += `<span class="badge" style="background: #e67e22; color: #ffffff; border: none; font-weight: 800; border-radius: 4px; padding: 4px 10px; font-size: 11px; letter-spacing: 0.5px;">${text}</span>`
       })
     }
-    if (user.banned) badgesHtml += `<span class="badge danger">BANNED</span>`
-    else badgesHtml += `<span class="badge success">ACTIVE</span>`
+    if (user.banned) badgesHtml += `<span class="badge danger" style="background: #e74c3c; color: white; border: none;">BANNED</span>`
+    else badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.05); color: #aaaaaa; border: 1px solid rgba(255,255,255,0.1); font-weight: 500;">ACTIVE</span>`
     document.getElementById('up-badges').innerHTML = badgesHtml
 
     // Setup actions
@@ -372,8 +372,8 @@ async function openUserModal(id) {
     }
 
     // Stats
-    const totalSearches = (data.searchHistory && data.searchHistory.length) || 0
-    const totalListens = (data.listeningHistory && data.listeningHistory.length) || 0
+    const totalSearches = user.totalSearches || (data.searchHistory && data.searchHistory.length) || 0
+    const totalListens = user.totalListens || (data.listeningHistory && data.listeningHistory.length) || 0
     document.getElementById('up-stat-searches').innerText = totalSearches
     document.getElementById('up-stat-listens').innerText = totalListens
     document.getElementById('up-stat-playlists').innerText = (data.playlists && data.playlists.length) || 0
