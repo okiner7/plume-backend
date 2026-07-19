@@ -56,9 +56,25 @@ async function findByProviderId(providerId) {
   return findOne(providerId)
 }
 
-async function incrementUserStat(providerId, statField) {
-  const user = await findOne(providerId)
+async function incrementUserStat(userIdOrProviderId, statField) {
+  const user = await new Promise(resolve => {
+    db.users.findOne({ $or: [{ providerId: userIdOrProviderId }, { userId: userIdOrProviderId }] }, (err, doc) => resolve(doc))
+  })
   if (!user) return
+  
+  if (user[statField] === undefined) {
+    // Initialize based on current history length
+    const count = await new Promise(resolve => {
+      if (statField === 'totalListens') db.listeningHist.count({ userId: user.userId || user.providerId }, (err, c) => resolve(c || 0))
+      else if (statField === 'totalSearches') db.searchHist.count({ userId: user.userId || user.providerId }, (err, c) => resolve(c || 0))
+      else resolve(0)
+    })
+    await new Promise(resolve => {
+      const setObj = {}; setObj[statField] = count;
+      db.users.update({ _id: user._id }, { $set: setObj }, {}, () => resolve())
+    })
+  }
+
   const incObj = {}
   incObj[statField] = 1
   return new Promise((resolve, reject) => {

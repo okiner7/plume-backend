@@ -250,8 +250,8 @@ textarea.input-base {
 
 /* User Profile Modal */
 .profile-cover {
-  height: 120px;
-  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+  height: 80px;
+  background: linear-gradient(135deg, rgba(230,126,34,0.15), rgba(108,92,231,0.15));
   position: relative;
 }
 .profile-header {
