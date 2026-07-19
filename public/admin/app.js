@@ -355,9 +355,18 @@ async function openUserModal(id) {
     let badgesHtml = `<span class="badge gray">${user.id || user.providerId || id}</span>`
     if (user.platform) badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.1)">${user.platform}</span>`
     if (user.badges && Array.isArray(user.badges)) {
+      const developerSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6C5CE7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`
+      const trophySvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F39C12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10M5 4v5c0 3.866 3.134 7 7 7h0c3.866 0 7-3.134 7-7V4M5 4l2 6m12-6-2 6"/></svg>`
       user.badges.forEach(b => {
-        const text = typeof b === 'string' ? b.toUpperCase() : (b.label ? b.label.toUpperCase() : 'BADGE')
-        badgesHtml += `<span class="badge" style="background: #e67e22; color: #ffffff; border: none; font-weight: 800; border-radius: 4px; padding: 4px 10px; font-size: 11px; letter-spacing: 0.5px;">${text}</span>`
+        const text = typeof b === 'string' ? b : (b.label ? b.label : 'Badge')
+        const isDev = typeof b === 'string' ? text.toLowerCase().includes('dev') || text.toLowerCase().includes('разраб') : (b.id === 'developer')
+        const isLike = typeof b === 'string' ? text.toLowerCase().includes('лайк') : (b.id && b.id.startsWith('likes_'))
+        
+        let iconSvg = ''
+        if (isDev) iconSvg = developerSvg
+        else if (isLike) iconSvg = trophySvg
+        
+        badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.15); color: #ffffff; border: none; font-weight: 600; border-radius: 20px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: normal;">${iconSvg}${text}</span>`
       })
     }
     if (user.banned) badgesHtml += `<span class="badge danger" style="background: #e74c3c; color: white; border: none;">BANNED</span>`
