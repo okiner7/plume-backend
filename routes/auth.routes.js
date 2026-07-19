@@ -15,12 +15,16 @@ router.get('/google', (req, res) => {
   res.redirect(google.getAuthUrl(state))
 })
 
-// Разрешённые префиксы для callback (локальный сервер Electron и deep link)
-const ALLOWED_CALLBACK_PREFIXES = ['http://localhost:', 'https://localhost:', 'lunex://']
-
-function isSafeCallback(url) {
-  if (!url) return false
-  return ALLOWED_CALLBACK_PREFIXES.some(prefix => url.startsWith(prefix))
+function isSafeCallback(callbackUrl) {
+  if (!callbackUrl || typeof callbackUrl !== 'string') return false
+  try {
+    const parsed = new URL(callbackUrl)
+    if (parsed.protocol === 'lunex:') return true
+    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname === 'localhost') return true
+    return false
+  } catch (e) {
+    return false
+  }
 }
 
 router.get('/google/callback', asyncHandler(async (req, res) => {

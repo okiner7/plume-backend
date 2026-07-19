@@ -49,7 +49,9 @@ app.use((req, res, next) => {
                                   .update(req.originalUrl + timestamp)
                                   .digest('hex')
 
-  if (signature !== expectedSignature) {
+  const sigBuf = Buffer.from(signature)
+  const expBuf = Buffer.from(expectedSignature)
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
     console.warn(`[Security] Invalid signature from ${req.ip} for ${req.originalUrl}`)
     return res.status(403).json({ success: false, error: 'Access Denied: Invalid Signature' })
   }

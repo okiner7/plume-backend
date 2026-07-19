@@ -17,7 +17,11 @@ function validateAuthData(data) {
   const secret = crypto.createHash('sha256').update(TELEGRAM_BOT_TOKEN).digest()
   const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex')
 
-  if (hmac !== hash) return null
+  const hmacBuf = Buffer.from(hmac)
+  const hashBuf = Buffer.from(hash)
+  if (hmacBuf.length !== hashBuf.length || !crypto.timingSafeEqual(hmacBuf, hashBuf)) {
+    return null
+  }
 
   return {
     telegramId: String(fields.id),

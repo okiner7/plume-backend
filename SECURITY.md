@@ -31,6 +31,8 @@
 | [LNX-2026-013](#lnx-2026-013) | 🔴 HIGH (8.5) | Open SSRF via `/api/sc/stream` fallback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-014](#lnx-2026-014) | 🟠 HIGH (7.2) | NoSQL Injection via Object parameters in DELETE | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-015](#lnx-2026-015) | 🟡 MEDIUM (6.5) | Missing object bounds causing Denial of Service (DB Bloat) | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-016](#lnx-2026-016) | 🟠 HIGH (7.4) | Open Redirect in Google OAuth Callback | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-017](#lnx-2026-017) | 🟡 MEDIUM (5.9) | HMAC Timing Attack in Signature Verification | ✅ Fixed | `security/cve-fixes` |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
@@ -229,6 +231,26 @@ Data structures like `track` payloads in `POST /likes`, `POST /listening-history
 - Implemented `sanitizeTrack()` in `user-data.routes.js` to strictly slice all strings to safe lengths (100-1000 characters).
 - Enforced hard limits: 50 playlists per user, 500 tracks per playlist, 10 custom themes per user.
 - Sliced `x-lunex-platform` headers to a maximum of 50 characters to prevent metric database bloat.
+
+---
+
+### LNX-2026-016
+**Open Redirect in Google OAuth Callback**  
+**CVSS: 7.4 (High)** · `AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N`
+
+The `isSafeCallback` function in `auth.routes.js` checked if the URL started with `http://localhost:`. An attacker could bypass this by using a URL like `http://localhost:@attacker.com`, which browsers interpret as navigating to `attacker.com` with `localhost:` as HTTP Basic Auth credentials. This allowed stealing the generated JWT token via a malicious callback URL.
+
+**Fix:** Replaced simple string prefix matching with robust parsing using the WHATWG `URL` API (`new URL(callbackUrl)`) and strictly validating `parsed.hostname === 'localhost'`.
+
+---
+
+### LNX-2026-017
+**HMAC Timing Attack in Signature Verification**  
+**CVSS: 5.9 (Medium)** · `AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N`
+
+HMAC signatures in `server.js` (Private API auth) and `services/auth/telegram.js` (Telegram Widget auth) were verified using the standard strict inequality operator (`!==`). Because V8's string comparison exits early on the first mismatched character, an attacker could theoretically guess the expected HMAC character-by-character by measuring the server's response time (Timing Attack).
+
+**Fix:** Switched to constant-time string comparison using Node's `crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))`.
 
 ---
 
