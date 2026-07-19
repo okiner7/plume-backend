@@ -30,6 +30,7 @@
 | [LNX-2026-012](#lnx-2026-012) | 🟢 LOW (3.7) | JWT stored in `localStorage` (XSS accessible) | ⏳ Backlog | Low risk in Electron |
 | [LNX-2026-013](#lnx-2026-013) | 🔴 HIGH (8.5) | Open SSRF via `/api/sc/stream` fallback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-014](#lnx-2026-014) | 🟠 HIGH (7.2) | NoSQL Injection via Object parameters in DELETE | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-015](#lnx-2026-015) | 🟡 MEDIUM (6.5) | Missing object bounds causing Denial of Service (DB Bloat) | ✅ Fixed | `security/cve-fixes` |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
@@ -215,6 +216,19 @@ The `url` parameter was passed directly to Axios without validation. An attacker
 The user data routes accepted JSON payloads where `trackId` could be passed as a query object `{"$ne": null}`. NeDB evaluated this as a NoSQL condition, allowing an attacker to inadvertently or maliciously delete their entire playlists or liked tracks.
 
 **Fix:** Strictly cast `req.body.trackId` and `req.body.source` to strings using `String()`.
+
+---
+
+### LNX-2026-015
+**Missing object bounds causing Denial of Service (DB Bloat)**  
+**CVSS: 6.5 (Medium)** · `AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H`
+
+Data structures like `track` payloads in `POST /likes`, `POST /listening-history`, and `/playlists` lacked strict length sanitization. Additionally, there were no hard limits on the number of playlists per user, or the number of tracks per playlist. An attacker could craft massive JSON payloads or spam database entries, exhausting server memory and crashing the application (as NeDB keeps datasets in memory).
+
+**Fix:** 
+- Implemented `sanitizeTrack()` in `user-data.routes.js` to strictly slice all strings to safe lengths (100-1000 characters).
+- Enforced hard limits: 50 playlists per user, 500 tracks per playlist, 10 custom themes per user.
+- Sliced `x-lunex-platform` headers to a maximum of 50 characters to prevent metric database bloat.
 
 ---
 

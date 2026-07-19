@@ -10,6 +10,11 @@ async function getAll(ownerId) {
 }
 
 async function create(ownerId, name) {
+  const count = await new Promise((resolve, reject) => {
+    db.playlists.count({ ownerId }, (err, c) => err ? reject(err) : resolve(c))
+  })
+  if (count >= 50) throw new Error('Maximum playlists limit reached (50)')
+
   const doc = {
     ownerId,
     name,
@@ -44,7 +49,11 @@ async function remove(playlistId, ownerId) {
 }
 
 async function addTrack(playlistId, ownerId, track) {
-  await ensurePlaylistExists(playlistId, ownerId)
+  const pl = await getOne(playlistId)
+  if (!pl) throw new Error('Playlist not found')
+  if (pl.ownerId !== ownerId) throw new Error('Forbidden')
+  if (pl.tracks && pl.tracks.length >= 500) throw new Error('Playlist is full (max 500 tracks)')
+
   return new Promise((resolve, reject) => {
     db.playlists.update(
       { _id: playlistId, ownerId },

@@ -12,6 +12,19 @@ const router = Router()
 
 router.use(authRequired)
 
+function sanitizeTrack(t) {
+  if (!t || typeof t !== 'object' || Array.isArray(t)) throw new Error('Invalid track format')
+  return {
+    id: String(t.id || '').slice(0, 100),
+    source: String(t.source || '').slice(0, 50),
+    title: String(t.title || '').slice(0, 200),
+    artist: String(t.artist || '').slice(0, 200),
+    duration: Number(t.duration) || 0,
+    artwork: String(t.artwork || '').slice(0, 1000),
+    url: String(t.url || '').slice(0, 1000)
+  }
+}
+
 function getUserId(req) {
   return `${req.user.provider}_${req.user.provider_id}`
 }
@@ -30,8 +43,7 @@ router.get('/likes', asyncHandler(async (req) => {
 router.post('/likes', asyncHandler(async (req) => {
   const userId = getUserId(req)
   const providerId = getProviderId(req)
-  const { track } = req.body
-  if (!track) throw new Error('Track required')
+  const track = sanitizeTrack(req.body.track)
   return await likesStore.add(userId, track, providerId)
 }))
 
@@ -54,14 +66,14 @@ router.get('/playlists', asyncHandler(async (req) => {
 
 router.post('/playlists', asyncHandler(async (req) => {
   const ownerId = getUserId(req)
-  const { name } = req.body
+  const name = String(req.body.name || '').trim().slice(0, 100)
   if (!name) throw new Error('Name required')
   return await playlistsStore.create(ownerId, name)
 }))
 
 router.put('/playlists/:id', asyncHandler(async (req) => {
   const ownerId = getUserId(req)
-  const { name } = req.body
+  const name = String(req.body.name || '').trim().slice(0, 100)
   if (!name) throw new Error('Name required')
   await playlistsStore.rename(req.params.id, ownerId, name)
   return { success: true }
@@ -75,8 +87,7 @@ router.delete('/playlists/:id', asyncHandler(async (req) => {
 
 router.post('/playlists/:id/tracks', asyncHandler(async (req) => {
   const ownerId = getUserId(req)
-  const { track } = req.body
-  if (!track) throw new Error('Track required')
+  const track = sanitizeTrack(req.body.track)
   await playlistsStore.addTrack(req.params.id, ownerId, track)
   return { success: true }
 }))
@@ -114,7 +125,7 @@ router.get('/search-history', asyncHandler(async (req) => {
 
 router.post('/search-history', asyncHandler(async (req) => {
   const userId = getUserId(req)
-  const { query } = req.body
+  const query = String(req.body.query || '').trim().slice(0, 200)
   if (!query) throw new Error('Query required')
   return await searchHistoryStore.add(userId, query)
 }))
@@ -135,8 +146,7 @@ router.get('/listening-history', asyncHandler(async (req) => {
 
 router.post('/listening-history', asyncHandler(async (req) => {
   const userId = getUserId(req)
-  const { track } = req.body
-  if (!track) throw new Error('Track required')
+  const track = sanitizeTrack(req.body.track)
   return await listeningHistoryStore.add(userId, track)
 }))
 

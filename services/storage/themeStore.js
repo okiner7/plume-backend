@@ -10,6 +10,11 @@ async function getAll() {
 }
 
 async function create(authorId, authorName, name, themeData) {
+  const count = await new Promise((resolve, reject) => {
+    db.themes.count({ authorId }, (err, c) => err ? reject(err) : resolve(c))
+  })
+  if (count >= 10) throw new Error('Maximum themes per user reached (10)')
+
   const doc = {
     authorId,
     authorName,
