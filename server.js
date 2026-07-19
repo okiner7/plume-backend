@@ -91,14 +91,20 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ success: false, error: err.message || 'Internal server error' })
 })
 
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
-  console.log('\n=======================================')
-  console.log(`[Lunex Backend v2] Server is LIVE`)
-  console.log(`[Port]    ${PORT}`)
-  console.log(`[PID]     ${process.pid}`)
-  console.log('=======================================\n')
-  telegramBot.start()
-  proxyHealth.start()
-  yt.init().catch(err => console.error('[YouTube] Init error:', err.message))
-})
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000
+  app.listen(PORT, () => {
+    console.log('\n=======================================')
+    console.log(`[Lunex Backend v2] Server is LIVE`)
+    console.log(`[Port]    ${PORT}`)
+    console.log(`[PID]     ${process.pid}`)
+    console.log('=======================================\n')
+    if (process.env.NODE_ENV !== 'test') {
+      telegramBot.start()
+      proxyHealth.start()
+      yt.init().catch(err => console.error('[YouTube] Init error:', err.message))
+    }
+  })
+}
+
+module.exports = app

@@ -47,8 +47,11 @@ router.get('/stream', asyncHandler(async (req) => {
         }
       }
 
-  if (foundUrl) return foundUrl
-  throw new Error('No valid stream found for track')
+      if (foundUrl) return foundUrl
+      throw new Error('No valid stream found for track')
+    } catch (err) {
+      console.error('[SoundCloud] Stream resolve error:', err.message)
+    }
   }
 
   // Fallback for when only url is provided (should rarely happen now)

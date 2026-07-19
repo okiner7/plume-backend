@@ -5,16 +5,25 @@ const DATA_DIR = path.join(__dirname, '..', '..', 'data')
 
 const db = {}
 
-db.users = new Datastore({ filename: path.join(DATA_DIR, 'users.db'), autoload: true })
-db.likes = new Datastore({ filename: path.join(DATA_DIR, 'likes.db'), autoload: true })
-db.playlists = new Datastore({ filename: path.join(DATA_DIR, 'playlists.db'), autoload: true })
-db.settings = new Datastore({ filename: path.join(DATA_DIR, 'settings.db'), autoload: true })
-db.searchHist = new Datastore({ filename: path.join(DATA_DIR, 'search_history.db'), autoload: true })
-db.authCodes = new Datastore({ filename: path.join(DATA_DIR, 'auth_codes.db'), autoload: true })
-db.listeningHist = new Datastore({ filename: path.join(DATA_DIR, 'listening_history.db'), autoload: true })
-db.themes = new Datastore({ filename: path.join(DATA_DIR, 'themes.db'), autoload: true })
-db.stats = new Datastore({ filename: path.join(DATA_DIR, 'stats.db'), autoload: true })
-db.trackStats = new Datastore({ filename: path.join(DATA_DIR, 'track_stats.db'), autoload: true })
+const isTest = process.env.NODE_ENV === 'test'
+
+function createDb(name) {
+  if (isTest) {
+    return new Datastore({ inMemoryOnly: true, autoload: true })
+  }
+  return new Datastore({ filename: path.join(DATA_DIR, `${name}.db`), autoload: true })
+}
+
+db.users = createDb('users')
+db.likes = createDb('likes')
+db.playlists = createDb('playlists')
+db.settings = createDb('settings')
+db.searchHist = createDb('search_history')
+db.authCodes = createDb('auth_codes')
+db.listeningHist = createDb('listening_history')
+db.themes = createDb('themes')
+db.stats = createDb('stats')
+db.trackStats = createDb('track_stats')
 
 db.users.ensureIndex({ fieldName: 'providerId', unique: true })
 db.likes.ensureIndex({ fieldName: 'userId' })

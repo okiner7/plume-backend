@@ -152,4 +152,4 @@ async function getUpNexts(videoId, historyIds = []) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-module.exports = { search, searchArtists, searchPlaylists, getUpNexts }
+module.exports = { search, searchArtists, searchPlaylists, getUpNexts, normaliseTrack, shuffleBiased }

@@ -26,6 +26,7 @@ class ProxyPool {
   }
 
   async _resolveCountry(proxy) {
+    if (process.env.NODE_ENV === 'test') return;
     try {
       const res = await axios.get('https://ipinfo.io/json', {
         httpsAgent: proxy.agent,
