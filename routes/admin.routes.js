@@ -124,10 +124,14 @@ router.get('/users/:id/details', asyncHandler(async (req) => {
   const searchHist = await searchHistoryStore.getRecent(user.userId || userStore.buildUserId(user.provider, user.providerId), 50)
   const listeningHist = await listeningHistoryStore.getRecent(user.userId || userStore.buildUserId(user.provider, user.providerId), 50)
   
+  const playlistsStore = require('../services/storage/playlistsStore')
+  const playlists = await playlistsStore.getAll(user.userId || userStore.buildUserId(user.provider, user.providerId))
+
   return {
     user,
     searchHistory: searchHist,
-    listeningHistory: listeningHist
+    listeningHistory: listeningHist,
+    playlists: playlists
   }
 }))
 

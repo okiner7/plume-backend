@@ -344,11 +344,21 @@ async function openUserModal(id) {
     
     const user = data.user || { id, name: id }
     document.getElementById('up-name').innerText = user.name || id
-    document.getElementById('up-avatar').innerText = (user.name || id).substring(0, 1).toUpperCase()
+    
+    if (user.avatar) {
+      document.getElementById('up-avatar').innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+    } else {
+      document.getElementById('up-avatar').innerText = (user.name || id).substring(0, 1).toUpperCase()
+    }
     
     // Setup badges
-    let badgesHtml = `<span class="badge gray">${user.id}</span>`
+    let badgesHtml = `<span class="badge gray">${user.id || user.providerId || id}</span>`
     if (user.platform) badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.1)">${user.platform}</span>`
+    if (user.badges && Array.isArray(user.badges)) {
+      user.badges.forEach(b => {
+        badgesHtml += `<span class="badge" style="background: linear-gradient(45deg, #f39c12, #d35400); color: white; border: none; font-weight: bold;">${b.toUpperCase()}</span>`
+      })
+    }
     if (user.banned) badgesHtml += `<span class="badge danger">BANNED</span>`
     else badgesHtml += `<span class="badge success">ACTIVE</span>`
     document.getElementById('up-badges').innerHTML = badgesHtml
