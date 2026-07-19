@@ -73,4 +73,19 @@ async function getTopTracks(limit = 10) {
   })
 }
 
-module.exports = { incrementListenCount, incrementSearchCount, getGlobalStats, incrementTrackPlay, getTopTracks }
+async function getTopSearches(limit = 10) {
+  return new Promise((resolve, reject) => {
+    db.searchHist.find({}, (err, docs) => {
+      if (err) return reject(err)
+      const counts = {}
+      for (const d of (docs || [])) {
+        if (!d.query) continue
+        counts[d.query] = (counts[d.query] || 0) + 1
+      }
+      const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0, limit)
+      resolve(sorted.map(([query, count]) => ({ query, count })))
+    })
+  })
+}
+
+module.exports = { incrementListenCount, incrementSearchCount, getGlobalStats, incrementTrackPlay, getTopTracks, getTopSearches }

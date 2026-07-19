@@ -15,7 +15,8 @@ async function findOrCreate(provider, providerId, profile) {
       avatar: profile.avatar || '',
       badges: [],
       createdAt: new Date(),
-      lastLoginAt: new Date()
+      lastLoginAt: new Date(),
+      banned: false
     }
     const newDoc = await insert(doc)
     return { ...newDoc, userId: buildUserId(provider, providerId) }
@@ -53,6 +54,12 @@ async function update(id, fields) {
 
 async function findByProviderId(providerId) {
   return findOne(providerId)
+}
+
+async function setBanStatus(providerId, banned) {
+  const user = await findOne(providerId)
+  if (!user) throw new Error('User not found')
+  await update(user._id, { banned })
 }
 
 // Throttle lastActiveAt updates (max once per 5 mins per user in memory)
@@ -122,4 +129,28 @@ async function countAllUsers() {
   })
 }
 
-module.exports = { findOrCreate, findOne, findByProviderId, getBadges, addBadge, buildUserId, updateLastActive, countActiveUsers, countAllUsers }
+async function getRecentUsers(limit = 50) {
+  return new Promise((resolve, reject) => {
+    db.users.find({}).sort({ lastActiveAt: -1 }).limit(limit).exec((err, docs) => {
+      if (err) return reject(err)
+      resolve(docs.map(doc => ({
+        id: doc.providerId,
+        name: doc.name || 'Anonymous',
+        platform: doc.lastPlatform || 'unknown',
+        lastActiveAt: doc.lastActiveAt,
+        banned: !!doc.banned
+      })))
+    })
+  })
+}
+
+async function getAllUserIds() {
+  return new Promise((resolve, reject) => {
+    db.users.find({}, { providerId: 1 }, (err, docs) => {
+      if (err) return reject(err)
+      resolve(docs.map(doc => doc.providerId))
+    })
+  })
+}
+
+module.exports = { findOrCreate, findOne, findByProviderId, getBadges, addBadge, buildUserId, updateLastActive, countActiveUsers, countAllUsers, getRecentUsers, setBanStatus, getAllUserIds }

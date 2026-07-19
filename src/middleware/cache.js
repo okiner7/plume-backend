@@ -78,6 +78,18 @@ const myCache = {
       const stats = localCache.getStats()
       return { vsize: stats.vsize, ksize: stats.ksize, keys: stats.keys }
     }
+  },
+  async flushAll() {
+    if (redis) {
+      try {
+        await redis.flushdb()
+        return 1
+      } catch { return 0 }
+    } else {
+      const stats = localCache.getStats()
+      localCache.flushAll()
+      return stats.keys
+    }
   }
 }
 

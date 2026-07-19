@@ -12,12 +12,13 @@ const statsStore = require('../services/storage/statsStore')
 const userStore = require('../services/storage/userStore')
 const proxyHealth = require('../services/health/proxyHealth')
 const { getProxyStats } = require('../src/middleware/proxyManager')
+const adminAuth = require('../src/middleware/adminAuth')
 
 const router = Router()
 
 router.get('/', (req, res) => res.json({ status: 'ok', service: 'Lunex API' }))
 
-router.get('/api/status', async (req, res) => {
+router.get('/api/status', adminAuth, async (req, res) => {
     const memUsage = process.memoryUsage();
     const appMb = (memUsage.rss / 1024 / 1024).toFixed(2);
     const stats = await myCache.getStats();
@@ -63,17 +64,6 @@ router.get('/api/status', async (req, res) => {
             uptimeSeconds: process.uptime()
         }
     })
-})
-
-router.get('/api/stats/top-tracks', async (req, res) => {
-    try {
-        // LNX-2026-010 fix: лимит не более 50 записей
-        const limit = Math.min(parseInt(req.query.limit) || 10, 50)
-        const tracks = await statsStore.getTopTracks(limit)
-        res.json({ success: true, data: tracks })
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message })
-    }
 })
 
 router.use('/api/yt', youtubeRoutes)

@@ -13,13 +13,15 @@ const yt = require('./services/youtube')
 const app = express()
 
 // Security Headers
-app.use(helmet())
+app.use(helmet({
+  contentSecurityPolicy: false
+}))
 
 // Compression (Gzip)
 app.use(compression())
 
-// Static Files
-app.use(express.static('public'))
+// Static Files (Disable cache for admin panel during dev)
+app.use(express.static('public', { setHeaders: (res) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private') } }))
 
 // HTTP Logging (skip OPTIONS to prevent console spam)
 app.use(morgan('dev', {
@@ -31,8 +33,8 @@ const { APP_SECRET } = require('./src/config/env')
 const crypto = require('crypto')
 
 app.use((req, res, next) => {
-  // Allow Telegram Webhooks, Status, Root endpoint, OAuth routes, and static Admin UI
-  if (req.path === '/api/status' || req.path === '/' || req.path.startsWith('/auth/') || req.path.startsWith('/admin') || req.method === 'OPTIONS') return next()
+  // Allow Telegram Webhooks, Status, Root endpoint, OAuth routes, static Admin UI, and favicon
+  if (req.path === '/api/status' || req.path === '/' || req.path === '/favicon.ico' || req.path.startsWith('/auth/') || req.path.startsWith('/admin') || req.path.startsWith('/api/admin') || req.method === 'OPTIONS') return next()
   
   const timestamp = req.headers['x-lunex-timestamp']
   const signature = req.headers['x-lunex-signature']

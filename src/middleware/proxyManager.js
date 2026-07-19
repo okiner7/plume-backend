@@ -145,8 +145,10 @@ class ProxyPool {
 
   // Вызвать когда прокси вернул ошибку 403/429/timeout
   markFailed(agentOrUrl) {
-    // Поддерживаем поиск как по агенту, так и по URL
-    const proxy = this.proxies.find(p => p.agent === agentOrUrl || p.url === agentOrUrl || p._url === agentOrUrl)
+    const proxy = typeof agentOrUrl === 'string' 
+      ? this.proxies.find(p => p.url === agentOrUrl)
+      : this.proxies.find(p => p.agent === agentOrUrl)
+      
     if (!proxy) return
     proxy.fails++
     if (proxy.fails >= MAX_FAILS) {
@@ -157,7 +159,7 @@ class ProxyPool {
       // Если все прокси легли — немедленно бьем тревогу в ТГ!
       if (this.healthy === 0) {
         try {
-          const telegramBot = require('../services/bot/telegramBot')
+          const telegramBot = require('../../services/bot/telegramBot')
           telegramBot.sendAdminAlert(
             `🛑 *СРОЧНО: Все прокси легли!*\nПоследний рабочий прокси только что ушел в cooldown.\n` +
             `Пользователи начнут получать ошибки при попытке включить музыку!`
@@ -170,8 +172,11 @@ class ProxyPool {
   }
 
   // Вызвать при успешном запросе
-  markSuccess(agent) {
-    const proxy = this.proxies.find(p => p.agent === agent)
+  markSuccess(agentOrUrl) {
+    const proxy = typeof agentOrUrl === 'string' 
+      ? this.proxies.find(p => p.url === agentOrUrl)
+      : this.proxies.find(p => p.agent === agentOrUrl)
+      
     if (proxy) proxy.fails = 0
   }
 
@@ -188,6 +193,47 @@ class ProxyPool {
       fails: p.fails,
       status: p.cooldownUntil > now ? `cooldown ${Math.round((p.cooldownUntil - now) / 1000)}s` : 'active'
     }))
+  }
+
+  addProxy(url) {
+    if (!url.startsWith('http')) {
+      const parts = url.split(':')
+      if (parts.length === 4) url = `http://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`
+      else if (parts.length === 2) url = `http://${parts[0]}:${parts[1]}`
+    }
+    
+    // Check duplicate
+    if (this.proxies.some(p => p.url === url)) return false
+    
+    const parsed = this._parse(url)
+    if (!parsed) throw new Error('Invalid format. Use http://... or ip:port or ip:port:user:pass')
+    
+    this.proxies.push(parsed)
+    if (!parsed.country) this._resolveCountry(parsed)
+    
+    // Save to file
+    this._saveToFile()
+    return true
+  }
+
+  removeProxy(urlOrMasked) {
+    const initialLen = this.proxies.length
+    this.proxies = this.proxies.filter(p => p.url !== urlOrMasked && p.url.replace(/:[^:@]+@/, ':***@') !== urlOrMasked)
+    if (this.proxies.length < initialLen) {
+      this._saveToFile()
+      return true
+    }
+    return false
+  }
+
+  _saveToFile() {
+    try {
+      const content = this.proxies.map(p => p.country ? `${p.url}|${p.country}` : p.url).join('\n')
+      // Disable file watcher briefly so it doesn't auto-reload
+      fs.writeFileSync(PROXY_FILE, content, 'utf8')
+    } catch (e) {
+      console.error('[ProxyPool] Failed to save proxies:', e.message)
+    }
   }
 }
 
@@ -213,4 +259,12 @@ function getProxyStats() {
   return { total: pool.count, healthy: pool.healthy, proxies: pool.getStats() }
 }
 
-module.exports = { getRandomProxyAgent, getCountryAwareProxyAgent, markProxyFailed, markProxySuccess, getProxyStats, _pool: pool }
+function addProxy(url) {
+  return pool.addProxy(url)
+}
+
+function removeProxy(url) {
+  return pool.removeProxy(url)
+}
+
+module.exports = { getRandomProxyAgent, getCountryAwareProxyAgent, markProxyFailed, markProxySuccess, getProxyStats, addProxy, removeProxy, _pool: pool }

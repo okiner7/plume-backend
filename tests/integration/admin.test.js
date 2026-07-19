@@ -20,16 +20,16 @@ describe('Admin API', () => {
   const adminToken = jwt.sign({ provider: 'telegram', provider_id: '999999' }, process.env.JWT_SECRET);
 
   it('should deny access without a token', async () => {
-    const res = await request(app).get('/api/admin/stats')
-      .set(getSignedHeaders('/api/admin/stats'));
+    const res = await request(app).get('/api/status')
+      .set(getSignedHeaders('/api/status'));
     
     expect(res.statusCode).toBe(401);
     expect(res.body.success).toBe(false);
   });
 
   it('should deny access with a normal user token', async () => {
-    const res = await request(app).get('/api/admin/stats')
-      .set(getSignedHeaders('/api/admin/stats'))
+    const res = await request(app).get('/api/status')
+      .set(getSignedHeaders('/api/status'))
       .set('Authorization', `Bearer ${normalToken}`);
     
     expect(res.statusCode).toBe(403);
@@ -37,14 +37,14 @@ describe('Admin API', () => {
   });
 
   it('should grant access and return stats with an admin token', async () => {
-    const res = await request(app).get('/api/admin/stats')
-      .set(getSignedHeaders('/api/admin/stats'))
+    const res = await request(app).get('/api/status')
+      .set(getSignedHeaders('/api/status'))
       .set('Authorization', `Bearer ${adminToken}`);
     
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.server).toBeDefined();
-    expect(res.body.data.proxies).toBeDefined();
+    expect(res.body.data.memory).toBeDefined();
+    expect(res.body.data.proxy).toBeDefined();
   });
 
   it('should return proxy list for admin', async () => {
