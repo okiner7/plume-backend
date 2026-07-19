@@ -356,7 +356,8 @@ async function openUserModal(id) {
     if (user.platform) badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.1)">${user.platform}</span>`
     if (user.badges && Array.isArray(user.badges)) {
       user.badges.forEach(b => {
-        badgesHtml += `<span class="badge" style="background: linear-gradient(45deg, #f39c12, #d35400); color: white; border: none; font-weight: bold;">${b.toUpperCase()}</span>`
+        const text = typeof b === 'string' ? b.toUpperCase() : (b.label ? b.label.toUpperCase() : 'BADGE')
+        badgesHtml += `<span class="badge" style="background: linear-gradient(45deg, #f39c12, #d35400); color: white; border: none; font-weight: bold;">${text}</span>`
       })
     }
     if (user.banned) badgesHtml += `<span class="badge danger">BANNED</span>`
