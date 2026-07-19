@@ -492,7 +492,12 @@ async function restartServer() {
 }
 
 
+function closeUserModal() {
+  document.getElementById('user-modal').classList.remove('active')
+}
+
 // Required for inline onclick handlers added dynamically
+window.closeUserModal = closeUserModal
 window.login = login
 window.logout = logout
 window.fetchStats = fetchStats
