@@ -375,11 +375,14 @@ async function openUserModal(id) {
     document.getElementById('up-badges').innerHTML = badgesHtml
 
     // Setup actions
+    let actionsHtml = ''
     if (user.banned) {
-      document.getElementById('up-actions').innerHTML = `<button class="btn-glass" onclick="unbanUser('${user.id}'); closeUserModal()">Unban User</button>`
+      actionsHtml += `<button class="btn-glass" onclick="unbanUser('${targetId}'); closeUserModal()">Unban User</button>`
     } else {
-      document.getElementById('up-actions').innerHTML = `<button class="btn-danger" onclick="banUser('${user.id}'); closeUserModal()">Ban User</button>`
+      actionsHtml += `<button class="btn-danger" onclick="banUser('${targetId}'); closeUserModal()">Ban User</button>`
     }
+    actionsHtml += `<button class="btn-danger" style="margin-left: 8px; background: rgba(255,69,58,0.2); border: 1px solid rgba(255,69,58,0.4);" onclick="deleteUser('${targetId}')">Delete User</button>`
+    document.getElementById('up-actions').innerHTML = actionsHtml
 
     // Stats
     const totalSearches = user.totalSearches || (data.searchHistory && data.searchHistory.length) || 0
@@ -422,7 +425,25 @@ async function openUserModal(id) {
 
     document.getElementById('user-modal').classList.add('active')
   } catch (err) {
+    console.error('Failed to load user details', err)
     alert('Failed to load user details: ' + err.message)
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm('Are you sure you want to completely delete this user? This cannot be undone.')) return
+  try {
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
+    })
+    if (!res.ok) throw new Error(await res.text())
+    fetchRecentUsers()
+    if (currentQuery) searchUsers()
+    closeUserModal()
+  } catch (err) {
+    console.error('Failed to delete user', err)
+    alert('Failed to delete user: ' + err.message)
   }
 }
 

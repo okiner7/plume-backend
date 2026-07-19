@@ -116,6 +116,12 @@ router.delete('/users/:id/ban', asyncHandler(async (req) => {
   return { message: 'User unbanned successfully' }
 }))
 
+router.delete('/users/:id', asyncHandler(async (req) => {
+  const userId = req.params.id
+  await userStore.deleteUser(userId)
+  return { message: 'User deleted successfully' }
+}))
+
 router.get('/users/:id/details', asyncHandler(async (req) => {
   const userId = req.params.id
   const user = await userStore.findByProviderId(userId)

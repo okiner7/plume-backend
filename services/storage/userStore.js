@@ -85,8 +85,10 @@ async function incrementUserStat(userIdOrProviderId, statField) {
   })
 }
 
-async function setBanStatus(providerId, banned) {
-  const user = await findOne(providerId)
+async function setBanStatus(id, banned) {
+  const user = await new Promise(resolve => {
+    db.users.findOne({ $or: [{ providerId: id }, { userId: id }] }, (err, doc) => resolve(doc))
+  })
   if (!user) throw new Error('User not found')
   await update(user._id, { banned })
 }
@@ -182,4 +184,18 @@ async function getAllUserIds() {
   })
 }
 
-module.exports = { findOrCreate, findOne, findByProviderId, getBadges, addBadge, buildUserId, updateLastActive, countActiveUsers, countAllUsers, getRecentUsers, setBanStatus, getAllUserIds, incrementUserStat }
+async function deleteUser(id) {
+  const user = await new Promise(resolve => {
+    db.users.findOne({ $or: [{ providerId: id }, { userId: id }] }, (err, doc) => resolve(doc))
+  })
+  if (!user) throw new Error('User not found')
+  
+  return new Promise((resolve, reject) => {
+    db.users.remove({ _id: user._id }, {}, (err, numRemoved) => {
+      if (err) return reject(err)
+      resolve(numRemoved)
+    })
+  })
+}
+
+module.exports = { findOrCreate, findOne, findByProviderId, getBadges, addBadge, buildUserId, updateLastActive, countActiveUsers, countAllUsers, getRecentUsers, setBanStatus, getAllUserIds, incrementUserStat, deleteUser }
