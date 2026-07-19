@@ -11,7 +11,7 @@
 
 ## Vulnerability Disclosure History
 
-> Last audit: **2026-07-19**  
+> Last audit: **2026-07-19** (updated 2026-07-19 — pass 2, frontend + backend)  
 > Methodology: White-box manual code review
 
 | ID | Severity | Title | Status | Fixed in commit |
@@ -33,6 +33,12 @@
 | [LNX-2026-015](#lnx-2026-015) | 🟡 MEDIUM (6.5) | Missing object bounds causing Denial of Service (DB Bloat) | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-016](#lnx-2026-016) | 🟠 HIGH (7.4) | Open Redirect in Google OAuth Callback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-017](#lnx-2026-017) | 🟡 MEDIUM (5.9) | HMAC Timing Attack in Signature Verification | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-018](#lnx-2026-018) | 🔴 HIGH (8.2) | APP_SECRET hardcoded in Electron main.js (plaintext) | ⚠️ Partial | Requires env injection |
+| [LNX-2026-019](#lnx-2026-019) | 🟠 HIGH (7.5) | Admin badge check via DB allows badge manipulation | ⏳ Backlog | Design risk |
+| [LNX-2026-020](#lnx-2026-020) | 🟡 MEDIUM (6.1) | `admin/logs` leaks internal server state to admins | ⏳ Backlog | Accepted risk |
+| [LNX-2026-021](#lnx-2026-021) | 🟡 MEDIUM (5.8) | `contentSecurityPolicy: false` disables CSP entirely | ⏳ Backlog | Admin panel only |
+| [LNX-2026-022](#lnx-2026-022) | 🟡 MEDIUM (5.5) | `artwork` URL in track data not validated — SSRF vector | ⏳ Backlog | No server-side fetch |
+| [LNX-2026-023](#lnx-2026-023) | 🟢 LOW (3.1) | Discord RPC `track.title` sent without length limit | ⏳ Backlog | No server impact |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
@@ -251,6 +257,130 @@ The `isSafeCallback` function in `auth.routes.js` checked if the URL started wit
 HMAC signatures in `server.js` (Private API auth) and `services/auth/telegram.js` (Telegram Widget auth) were verified using the standard strict inequality operator (`!==`). Because V8's string comparison exits early on the first mismatched character, an attacker could theoretically guess the expected HMAC character-by-character by measuring the server's response time (Timing Attack).
 
 **Fix:** Switched to constant-time string comparison using Node's `crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))`.
+
+---
+
+### LNX-2026-018
+**APP_SECRET Hardcoded in Electron `main.js`**  
+**CVSS: 8.2 (High)** · `AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N`
+
+The `APP_SECRET` used for HMAC request signing is **still hardcoded** as a string literal directly in `electron/main.js`:
+
+```js
+// electron/main.js line 11
+const APP_SECRET = 'super-secret-lunex-app-key-2026'
+```
+
+Anyone who decompiles the shipped Electron `.asar` archive (a trivial operation: `npx asar extract app.asar ./out`) can extract this secret and forge any API request with a valid HMAC signature, bypassing the Private API authentication middleware entirely.
+
+**Recommended Fix:** Use `process.env.LUNEX_APP_SECRET` injected at build time via `electron-builder`'s `extraMetadata` or an env-injection build step. If that is not feasible, rotate the secret and accept that it will be visible to determined users (Electron client is untrusted by design).
+
+```diff
+- const APP_SECRET = 'super-secret-lunex-app-key-2026'
++ const APP_SECRET = process.env.LUNEX_APP_SECRET || import.meta.env.VITE_APP_SECRET
+```
+
+---
+
+### LNX-2026-019
+**Admin Authorization via DB Badge — Privilege Escalation Risk**  
+**CVSS: 7.5 (High)** · `AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N`
+
+In `adminAuth.js`, after checking `DEV_EMAILS`/`DEV_TELEGRAM_IDS`, the middleware falls back to checking if the user has a `'Developer'` badge in the database:
+
+```js
+// adminAuth.js line 27
+if (badges && badges.includes('Developer')) {
+  req.user = decoded
+  return next()
+}
+```
+
+However, `badges` is an array of **objects** (e.g. `{ id: 'developer', label: '...', earnedAt: ... }`), not an array of strings. Therefore `badges.includes('Developer')` will **always be `false`** because `'Developer' !== { id: 'developer', ... }`. This logic is silently broken. While currently it does not grant unintended access (it fails safely), it means any badge-based admin delegation is non-functional and the code gives a false sense of security.
+
+**Recommended Fix:**
+```diff
+- if (badges && badges.includes('Developer')) {
++ if (badges && badges.some(b => b.id === 'developer')) {
+```
+
+---
+
+### LNX-2026-020
+**`GET /api/admin/logs` — Sensitive Server State Disclosure**  
+**CVSS: 6.1 (Medium)** · `AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N`
+
+The `/api/admin/logs` endpoint returns up to 200 lines of captured `console.log` / `console.error` output, including full error stack traces, internal path names, and raw API error messages from YouTube/SoundCloud responses. While the route is correctly protected by `adminAuth`, any compromised admin token would immediately expose the full internal error state of the server.
+
+**Status: Accepted Risk** — Access is admin-only. Consider filtering known sensitive patterns (file paths, auth codes) from log output in the future.
+
+---
+
+### LNX-2026-021
+**Content Security Policy Disabled (`contentSecurityPolicy: false`)**  
+**CVSS: 5.8 (Medium)** · `AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N`
+
+`helmet` is configured with `contentSecurityPolicy: false` in `server.js`, disabling the CSP header entirely for all pages served — including the admin panel. A CSP is the primary browser-level defense against Cross-Site Scripting (XSS) attacks.
+
+```js
+// server.js line 16-18
+app.use(helmet({
+  contentSecurityPolicy: false  // ← CSP is off
+}))
+```
+
+**Recommended Fix:** Define a strict CSP for the admin panel origin:
+```js
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    }
+  }
+}))
+```
+
+---
+
+### LNX-2026-022
+**Unvalidated `artwork` URL in Track Data — Potential SSRF Vector**  
+**CVSS: 5.5 (Medium)** · `AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N`
+
+The `sanitizeTrack()` function in `user-data.routes.js` stores the `artwork` field as a raw URL string with only a length limit of 1000 characters:
+
+```js
+artwork: String(t.artwork || '').slice(0, 1000),
+```
+
+No URL scheme validation is performed. If any future backend code were to fetch this URL (e.g., to generate thumbnails, cache artwork, or forward it), a user could inject `file:///etc/passwd`, `http://169.254.169.254/` (AWS metadata), or `gopher://` URIs to achieve SSRF. Currently there is no server-side fetch of this field, so the risk is latent.
+
+**Recommended Fix:** Add a URL scheme allowlist:
+```js
+function isValidArtworkUrl(url) {
+  try {
+    const u = new URL(url)
+    return ['https:', 'http:'].includes(u.protocol)
+  } catch { return false }
+}
+artwork: isValidArtworkUrl(t.artwork) ? String(t.artwork).slice(0, 1000) : '',
+```
+
+---
+
+### LNX-2026-023
+**Discord RPC `track.title` Without Length Limit**  
+**CVSS: 3.1 (Low)** · `AV:L/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:L`
+
+In `electron/discord.js`, `track.title` and `track.artist` are passed directly to Discord's `SET_ACTIVITY` RPC call without any length validation. Discord's API enforces a maximum of **128 characters** for `details` and `state`. While Discord will silently truncate or reject oversized values, a track with an extremely long title (e.g., from a scraped YouTube video) could cause a noisy RPC rejection error in logs on every playback event.
+
+**Recommended Fix:**
+```js
+details: (track.title || 'Unknown').slice(0, 128),
+state: stateText.slice(0, 128),
+```
 
 ---
 
