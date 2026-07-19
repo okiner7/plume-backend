@@ -24,10 +24,12 @@
 | [LNX-2026-006](#lnx-2026-006) | 🟠 HIGH (6.8) | JWT tokens without revocation capability | ⏳ Backlog | Needs refresh token flow |
 | [LNX-2026-007](#lnx-2026-007) | 🟠 HIGH (6.5) | Telegram Bot Token exposed in avatar URL | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-008](#lnx-2026-008) | 🟡 MEDIUM (5.9) | CORS wildcard allows all origins | ✅ Fixed | `security/cve-fixes` |
-| [LNX-2026-009](#lnx-2026-009) | 🟡 MEDIUM (5.4) | Unsanitized user input stored in DB | ⏳ Backlog | Low risk in Electron |
+| [LNX-2026-009](#lnx-2026-009) | 🟡 MEDIUM (5.4) | Unsanitized user input stored in DB | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-010](#lnx-2026-010) | 🟡 MEDIUM (4.3) | `/api/stats/top-tracks` unbounded limit | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-011](#lnx-2026-011) | 🟡 MEDIUM (4.2) | Missing `auth_date` check in Telegram Widget auth | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-012](#lnx-2026-012) | 🟢 LOW (3.7) | JWT stored in `localStorage` (XSS accessible) | ⏳ Backlog | Low risk in Electron |
+| [LNX-2026-013](#lnx-2026-013) | 🔴 HIGH (8.5) | Open SSRF via `/api/sc/stream` fallback | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-014](#lnx-2026-014) | 🟠 HIGH (7.2) | NoSQL Injection via Object parameters in DELETE | ✅ Fixed | `security/cve-fixes` |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
@@ -156,9 +158,9 @@ const ALLOWED_ORIGINS = [
 **Unsanitized User Input in Database**  
 **CVSS: 5.4 (Medium)** · `AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N`
 
-Fields like `name`, `themeData`, `title`, `artist`, and `artwork` are stored without sanitization. React's JSX escaping prevents XSS in the current Electron client, but a future web version would be vulnerable to Stored XSS.
+Fields like `name`, `themeData`, `title`, `artist`, and `artwork` are stored without sanitization. React's JSX escaping prevents XSS in the current Electron client, but a future web version would be vulnerable to Stored XSS. Also, unbounded string lengths allowed Denial of Service via DB bloat.
 
-**Status: Backlog** — Low risk in current Electron context. Validation layer recommended before any web deployment.
+**Fix:** Added strict type casting and length boundaries for inputs on theme publishing and other endpoints.
 
 ---
 
@@ -193,6 +195,26 @@ if (!authDate || (Date.now() / 1000 - authDate) > 86400) return null
 The JWT is stored in `localStorage`, accessible to any JavaScript running in the same origin. In the Electron context this risk is minimal as pages are loaded from local files and XSS is practically impossible.
 
 **Status: Backlog** — Acceptable risk in Electron. For a future web version, `httpOnly` cookies should be used instead.
+
+---
+
+### LNX-2026-013
+**Open SSRF via `/api/sc/stream` fallback**  
+**CVSS: 8.5 (High)** · `AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N`
+
+The `url` parameter was passed directly to Axios without validation. An attacker could force the backend to make arbitrary GET requests to internal infrastructure or external targets.
+
+**Fix:** Enforced domain allowlist checking (`startsWith('https://api-v2.soundcloud.com/')` or `soundcloud.com/`).
+
+---
+
+### LNX-2026-014
+**NoSQL Injection via Object parameters in DELETE**  
+**CVSS: 7.2 (High)** · `AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H`
+
+The user data routes accepted JSON payloads where `trackId` could be passed as a query object `{"$ne": null}`. NeDB evaluated this as a NoSQL condition, allowing an attacker to inadvertently or maliciously delete their entire playlists or liked tracks.
+
+**Fix:** Strictly cast `req.body.trackId` and `req.body.source` to strings using `String()`.
 
 ---
 
