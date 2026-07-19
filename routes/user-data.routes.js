@@ -37,7 +37,9 @@ router.post('/likes', asyncHandler(async (req) => {
 
 router.delete('/likes', asyncHandler(async (req) => {
   const userId = getUserId(req)
-  const { trackId, source } = req.body
+  // FIX NoSQL Injection: strictly cast to string to prevent object injection like {"$ne": null}
+  const trackId = String(req.body.trackId || '')
+  const source = String(req.body.source || '')
   if (!trackId || !source) throw new Error('trackId and source required')
   await likesStore.removeByTrack(userId, trackId, source)
   return { success: true }
@@ -81,7 +83,9 @@ router.post('/playlists/:id/tracks', asyncHandler(async (req) => {
 
 router.delete('/playlists/:id/tracks', asyncHandler(async (req) => {
   const ownerId = getUserId(req)
-  const { trackId, source } = req.body
+  // FIX NoSQL Injection: strictly cast to string
+  const trackId = String(req.body.trackId || '')
+  const source = String(req.body.source || '')
   if (!trackId || !source) throw new Error('trackId and source required')
   await playlistsStore.removeTrack(req.params.id, ownerId, trackId, source)
   return { success: true }
