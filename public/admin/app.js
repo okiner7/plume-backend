@@ -357,7 +357,7 @@ async function openUserModal(id) {
     if (user.badges && Array.isArray(user.badges)) {
       user.badges.forEach(b => {
         const text = typeof b === 'string' ? b.toUpperCase() : (b.label ? b.label.toUpperCase() : 'BADGE')
-        badgesHtml += `<span class="badge" style="background: linear-gradient(45deg, #f39c12, #d35400); color: white; border: none; font-weight: bold;">${text}</span>`
+        badgesHtml += `<span class="badge" style="background: #e67e22; color: #ffffff; border: none; font-weight: 800; border-radius: 4px; padding: 4px 10px; font-size: 11px; letter-spacing: 0.5px;">${text}</span>`
       })
     }
     if (user.banned) badgesHtml += `<span class="badge danger">BANNED</span>`
@@ -377,6 +377,7 @@ async function openUserModal(id) {
     document.getElementById('up-stat-searches').innerText = totalSearches
     document.getElementById('up-stat-listens').innerText = totalListens
     document.getElementById('up-stat-playlists').innerText = (data.playlists && data.playlists.length) || 0
+    document.getElementById('up-stat-likes').innerText = data.likesCount || 0
     document.getElementById('up-stat-active').innerText = user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleString() : '-'
 
     const searchTbody = document.getElementById('user-modal-searches')

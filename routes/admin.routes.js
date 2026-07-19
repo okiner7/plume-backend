@@ -127,11 +127,15 @@ router.get('/users/:id/details', asyncHandler(async (req) => {
   const playlistsStore = require('../services/storage/playlistsStore')
   const playlists = await playlistsStore.getAll(user.userId || userStore.buildUserId(user.provider, user.providerId))
 
+  const likesStore = require('../services/storage/likesStore')
+  const likesCount = await likesStore.countByUser(user.userId || userStore.buildUserId(user.provider, user.providerId))
+
   return {
     user,
     searchHistory: searchHist,
     listeningHistory: listeningHist,
-    playlists: playlists
+    playlists: playlists,
+    likesCount: likesCount
   }
 }))
 
