@@ -25,7 +25,7 @@ services:
   mongodb:
     image: mongo:6
     container_name: lunex-mongo
-    command: ["mongod", "--quiet"]
+    command: ["mongod", "--quiet", "--setParameter", "logComponentVerbosity={network:{verbosity:-1}}"]
     restart: always
     ports:
       - "127.0.0.1:27017:27017"
