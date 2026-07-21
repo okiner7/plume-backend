@@ -69,7 +69,7 @@ class ProxyPool {
     }
 
     try {
-      return { url, agent: new HttpsProxyAgent(url), fails: 0, cooldownUntil: 0, country }
+      return { url, agent: new HttpsProxyAgent(url, { keepAlive: true }), fails: 0, cooldownUntil: 0, country }
     } catch {
       return null
     }

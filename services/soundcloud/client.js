@@ -8,7 +8,9 @@ const scClient = axios.create({
     'Accept': 'application/json',
     'Accept-Language': 'en-US,en;q=0.9',
     'Referer': 'https://soundcloud.com/',
-    'Origin': 'https://soundcloud.com'
+    'Origin': 'https://soundcloud.com',
+    'Accept-Encoding': 'gzip, compress, deflate, br',
+    'Connection': 'keep-alive'
   }
 })
 
