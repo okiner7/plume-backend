@@ -20,7 +20,10 @@ async function init() {
           return config
         })
       }
-      console.log('[YouTube] Music client initialized successfully')
+      if (typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0') {
+        const total = process.env.instances || 4
+        console.log(`[YouTube] Music client initialized successfully ${total}/${total}`)
+      }
     } catch (err) {
       console.error('YT init error:', err.message)
     }

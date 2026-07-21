@@ -19,7 +19,12 @@ if (isProd || process.env.REDIS_URL) {
       return Math.min(times * 500, 5000)
     }
   })
-  redis.on('connect', () => console.log('[Redis] Connected'))
+  redis.on('connect', () => {
+    if (typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0') {
+      const total = process.env.instances || 4
+      console.log(`[Redis] Connected ${total}/${total}`)
+    }
+  })
   redis.on('error', (err) => console.error('[Redis] Error:', err.message))
 }
 

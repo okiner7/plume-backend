@@ -11,7 +11,10 @@ async function connectDB() {
   if (connectPromise) return connectPromise
   connectPromise = client.connect()
     .then(() => {
-      console.log('[MongoDB] Connected to database')
+      if (typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0') {
+        const total = process.env.instances || 4
+        console.log(`[MongoDB] Connected ${total}/${total}`)
+      }
       const mdb = client.db()
       
       // Map collections to existing property names
