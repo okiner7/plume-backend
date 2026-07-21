@@ -110,22 +110,23 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
   const PORT = process.env.PORT || 3000
   app.listen(PORT, () => {
-    console.log('\n=======================================')
-    console.log(`[Lunex Backend v2] Server is LIVE`)
-    console.log(`[Port]    ${PORT}`)
-    console.log(`[PID]     ${process.pid}`)
-    console.log('=======================================\n')
+    const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
+    
+    if (isPrimaryWorker) {
+      console.log('\n=======================================')
+      console.log(`[Lunex Backend v2] Server is LIVE`)
+      console.log(`[Port]    ${PORT}`)
+      console.log(`[PID]     ${process.pid}`)
+      console.log('=======================================\n')
+    }
+
     if (process.env.NODE_ENV !== 'test') {
-      // PM2 injects NODE_APP_INSTANCE. 
-      // If undefined (local run) or '0' (first PM2 worker), start singletons.
-      const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
-      
       if (isPrimaryWorker) {
         console.log(`[Worker] Primary instance detected (Instance 0) - Starting Bot & Cron Jobs`)
         telegramBot.start()
         proxyHealth.start()
       } else {
-        console.log(`[Worker] Secondary instance detected (Instance ${process.env.NODE_APP_INSTANCE}) - Skiping Bot & Cron Jobs`)
+        console.log(`[Worker] Secondary instance started (Instance ${process.env.NODE_APP_INSTANCE})`)
       }
 
       yt.init().catch(err => console.error('[YouTube] Init error:', err.message))
