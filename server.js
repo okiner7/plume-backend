@@ -113,13 +113,19 @@ if (require.main === module) {
     const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
     
     if (isPrimaryWorker) {
-      console.log(`\n🚀 [Lunex Backend v2] LIVE on Port ${PORT} | 🤖 Services active\n`)
+      console.log('\n=======================================')
+      console.log(`[Lunex Backend v2] Server is LIVE`)
+      console.log(`[Port]    ${PORT}`)
+      console.log(`[PID]     ${process.pid}`)
+      console.log('=======================================\n')
     }
 
     if (process.env.NODE_ENV !== 'test') {
       if (isPrimaryWorker) {
         telegramBot.start()
         proxyHealth.start()
+      } else {
+        console.log(`[Worker] Secondary instance started (Instance ${process.env.NODE_APP_INSTANCE})`)
       }
 
       yt.init().catch(err => console.error('[YouTube] Init error:', err.message))
