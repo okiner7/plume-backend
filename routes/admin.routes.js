@@ -14,14 +14,18 @@ const path = require('path')
 const router = Router()
 
 // Log interception for Admin Panel
-const logHistory = []
+const { redis } = require('../src/middleware/cache')
 const originalLog = console.log
 const originalError = console.error
 
 function captureLog(type, args) {
   const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
-  logHistory.push(`[${new Date().toISOString()}] [${type}] ${msg}`)
-  if (logHistory.length > 200) logHistory.shift()
+  const logStr = `[${new Date().toISOString()}] [${type}] [Worker ${process.env.NODE_APP_INSTANCE || 0}] ${msg}`
+  
+  if (redis && redis.status === 'ready') {
+    redis.rpush('admin:logs', logStr).catch(() => {})
+    redis.ltrim('admin:logs', -200, -1).catch(() => {})
+  }
 }
 
 console.log = function(...args) {
@@ -33,22 +37,32 @@ console.error = function(...args) {
   originalError.apply(console, args)
 }
 
-// Metrics History for Chart
-let metricsHistory = []
-setInterval(async () => {
-  const memory = process.memoryUsage()
-  const memMb = Math.round(memory.rss / 1024 / 1024)
-  const users = await userStore.countActiveUsers()
-  let activeSum = 0
-  if (users) activeSum = Object.values(users).reduce((a,b)=>a+b, 0)
-  
-  metricsHistory.push({
-    time: new Date().toLocaleTimeString(),
-    ram: memMb,
-    users: activeSum
-  })
-  if (metricsHistory.length > 50) metricsHistory.shift()
-}, 5000)
+// Metrics History for Chart (Only gathered by primary instance to avoid overlaps)
+const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
+if (isPrimaryWorker) {
+  setInterval(async () => {
+    try {
+      const memory = process.memoryUsage()
+      const memMb = Math.round(memory.rss / 1024 / 1024)
+      const users = await userStore.countActiveUsers()
+      let activeSum = 0
+      if (users) activeSum = Object.values(users).reduce((a,b)=>a+b, 0)
+      
+      const metric = JSON.stringify({
+        time: new Date().toLocaleTimeString(),
+        ram: memMb,
+        users: activeSum
+      })
+      
+      if (redis && redis.status === 'ready') {
+        redis.rpush('admin:metrics', metric).catch(() => {})
+        redis.ltrim('admin:metrics', -50, -1).catch(() => {})
+      }
+    } catch (err) {
+      console.error('[Admin] Metrics gather error:', err.message)
+    }
+  }, 5000)
+}
 
 
 // All routes here are protected by adminAuth
@@ -159,11 +173,18 @@ router.get('/insights/top-tracks', asyncHandler(async (req) => {
 }))
 
 router.get('/logs', asyncHandler(async (req) => {
-  return logHistory
+  if (redis && redis.status === 'ready') {
+    return await redis.lrange('admin:logs', 0, -1)
+  }
+  return []
 }))
 
 router.get('/metrics/history', asyncHandler(async (req) => {
-  return metricsHistory
+  if (redis && redis.status === 'ready') {
+    const metrics = await redis.lrange('admin:metrics', 0, -1)
+    return metrics.map(m => JSON.parse(m))
+  }
+  return []
 }))
 
 router.post('/restart', asyncHandler(async (req) => {
