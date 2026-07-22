@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "cross-env NODE_ENV=test APP_SECRET=testsecret JWT_SECRET=testjwt BOT_TOKEN=testbot DEV_TELEGRAM_IDS=999999 node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
+    "test": "cross-env NODE_ENV=test APP_SECRET=testsecret JWT_SECRET=testjwt BOT_TOKEN=testbot DEV_TELEGRAM_IDS=999999 MONGO_URI=mongodb://127.0.0.1:27017/lunex-test REDIS_URL=redis://127.0.0.1:6379 node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
   },
   "dependencies": {
     "axios": "^1.7.0",
