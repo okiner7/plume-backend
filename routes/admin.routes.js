@@ -40,7 +40,7 @@ console.error = function(...args) {
 // Metrics History for Chart (Only gathered by primary instance to avoid overlaps)
 const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
 if (isPrimaryWorker) {
-  setInterval(async () => {
+  const metricsInterval = setInterval(async () => {
     try {
       const memory = process.memoryUsage()
       const memMb = Math.round(memory.rss / 1024 / 1024)
@@ -59,9 +59,12 @@ if (isPrimaryWorker) {
         redis.ltrim('admin:metrics', -50, -1).catch(() => {})
       }
     } catch (err) {
-      console.error('[Admin] Metrics gather error:', err.message)
+      if (!err.message.includes('session that has ended') && !err.message.includes('Client must be connected')) {
+        console.error('[Admin] Metrics gather error:', err.message)
+      }
     }
   }, 5000)
+  metricsInterval.unref()
 }
 
 
