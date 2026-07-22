@@ -48,6 +48,7 @@ async function connectDB() {
 }
 
 // Connect immediately so operations are buffered/ready
-connectDB()
+db.connectPromise = connectDB()
+db.client = client
 
 module.exports = db
