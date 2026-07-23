@@ -520,6 +520,17 @@ window.unbanUser = unbanUser
 window.openUserModal = openUserModal
 window.fetchInsights = fetchInsights
 window.switchTab = switchTab
+
+window.deleteUpdate = async (platform, channel, version) => {
+  if (!confirm(`Are you sure you want to delete ${platform} ${channel} v${version}?`)) return
+  try {
+    await apiRequest(`/updates/${platform}/${channel}/${version}`, { method: 'DELETE' })
+    fetchUpdates()
+  } catch (err) {
+    alert(`Failed to delete: ${err.message}`)
+  }
+}
+
 // ... Updates Handling
 async function fetchUpdates() {
   const tbody = document.getElementById('updates-table-body')
@@ -535,21 +546,36 @@ async function fetchUpdates() {
       return
     }
     
-    tbody.innerHTML = platforms.map(platform => {
-      const u = updates[platform]
-      const date = new Date(u.uploadDate).toLocaleString()
-      return `
-        <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500;">${platform.toUpperCase()}</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
-            <span class="badge">v${u.version}</span>
-            ${u.mandatory ? '<span class="badge" style="background: #ef4444; color: white; border-color: #ef4444; margin-left: 6px;">Mandatory</span>' : ''}
-          </td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${u.filename}</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${date}</td>
-        </tr>
-      `
-    }).join('')
+    let rows = ''
+    for (const platform of platforms) {
+      const channels = Object.keys(updates[platform]).sort()
+      for (const channel of channels) {
+        const channelUpdates = updates[platform][channel] || []
+        for (const u of channelUpdates) {
+          const date = new Date(u.uploadDate).toLocaleString()
+          rows += `
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500;">
+                ${platform.toUpperCase()}
+                <span style="font-size: 11px; margin-left: 8px; color: var(--text-muted); text-transform: uppercase;">${channel}</span>
+              </td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
+                <span class="badge">v${u.version}</span>
+                ${u.mandatory ? '<span class="badge" style="background: #ef4444; color: white; border-color: #ef4444; margin-left: 6px;">Mandatory</span>' : ''}
+              </td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${u.filename}</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                ${date}
+                <button onclick="deleteUpdate('${platform}', '${channel}', '${u.version}')" style="margin-left: 12px; background: none; border: none; color: #ef4444; cursor: pointer; text-decoration: underline; font-size: 12px;">Delete</button>
+              </td>
+            </tr>
+          `
+        }
+      }
+    }
+    
+    if (rows === '') rows = '<tr><td colspan="4" style="text-align: center; padding: 16px; color: var(--text-muted);">No updates deployed yet</td></tr>'
+    tbody.innerHTML = rows
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 16px; color: #ff4a4a;">Failed to load updates: ${err.message}</td></tr>`
   }
@@ -560,47 +586,68 @@ document.getElementById('form-upload-update')?.addEventListener('submit', async 
   if (!jwtToken) return
   
   const platform = document.getElementById('update-platform').value
+  const channel = document.getElementById('update-channel').value
   const version = document.getElementById('update-version').value
   const notes = document.getElementById('update-notes').value
   const isMandatory = document.getElementById('update-mandatory').checked
   const fileInput = document.getElementById('update-file')
   const statusSpan = document.getElementById('update-status')
   const btn = document.getElementById('btn-deploy-update')
+  const progressContainer = document.getElementById('upload-progress-container')
+  const progressBar = document.getElementById('upload-progress')
   
   if (!fileInput.files.length) return
   
   const file = fileInput.files[0]
   const formData = new FormData()
   formData.append('platform', platform)
+  formData.append('channel', channel)
   formData.append('version', version)
   formData.append('releaseNotes', notes)
   formData.append('mandatory', isMandatory)
   formData.append('file', file)
   
-  try {
-    btn.disabled = true
-    statusSpan.style.color = 'var(--text-muted)'
-    statusSpan.innerText = 'Uploading... Please wait.'
-    
-    const res = await fetch('/api/admin/updates', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${jwtToken}`
-      },
-      body: formData
-    })
-    
-    const data = await res.json()
-    if (!res.ok || data.success === false) throw new Error(data.error || 'Upload failed')
-    
-    statusSpan.style.color = '#10b981'
-    statusSpan.innerText = 'Update deployed successfully!'
-    e.target.reset()
-    fetchUpdates()
-  } catch (err) {
-    statusSpan.style.color = '#ff4a4a'
-    statusSpan.innerText = `Error: ${err.message}`
-  } finally {
+  btn.disabled = true
+  statusSpan.style.color = 'var(--text-muted)'
+  statusSpan.innerText = 'Uploading... Please wait.'
+  progressContainer.style.display = 'block'
+  progressBar.value = 0
+  
+  const xhr = new XMLHttpRequest()
+  
+  xhr.upload.addEventListener('progress', (event) => {
+    if (event.lengthComputable) {
+      const percent = Math.round((event.loaded / event.total) * 100)
+      progressBar.value = percent
+      statusSpan.innerText = `Uploading... ${percent}%`
+    }
+  })
+  
+  xhr.addEventListener('load', () => {
+    progressContainer.style.display = 'none'
     btn.disabled = false
-  }
+    
+    if (xhr.status >= 200 && xhr.status < 300) {
+      statusSpan.style.color = '#10b981'
+      statusSpan.innerText = 'Update deployed successfully!'
+      document.getElementById('form-upload-update').reset()
+      fetchUpdates()
+    } else {
+      let errStr = 'Upload failed'
+      try { errStr = JSON.parse(xhr.responseText).error || errStr } catch(e){}
+      statusSpan.style.color = '#ff4a4a'
+      statusSpan.innerText = `Error: ${errStr}`
+    }
+  })
+  
+  xhr.addEventListener('error', () => {
+    progressContainer.style.display = 'none'
+    btn.disabled = false
+    statusSpan.style.color = '#ff4a4a'
+    statusSpan.innerText = 'Error: Network error occurred during upload.'
+  })
+  
+  xhr.open('POST', '/api/admin/updates')
+  xhr.setRequestHeader('Authorization', `Bearer ${jwtToken}`)
+  xhr.send(formData)
 })

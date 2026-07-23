@@ -232,6 +232,13 @@
                     </select>
                   </div>
                   <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 6px;">Channel</label>
+                    <select id="update-channel" class="input-base" style="width: 100%; box-sizing: border-box;" required>
+                      <option value="stable">Stable</option>
+                      <option value="beta">Beta</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1;">
                     <label style="display: block; margin-bottom: 6px;">Version</label>
                     <input type="text" id="update-version" class="input-base" placeholder="e.g. 2.0.1" style="width: 100%; box-sizing: border-box;" required>
                   </div>
@@ -250,6 +257,10 @@
                 <div class="form-group">
                   <label style="display: block; margin-bottom: 6px;">Update File (.exe, .dmg, .zip, .apk)</label>
                   <input type="file" id="update-file" class="input-base" required style="width: 100%; box-sizing: border-box; padding: 6px;">
+                </div>
+                
+                <div class="form-group" id="upload-progress-container" style="display: none;">
+                  <progress id="upload-progress" value="0" max="100" style="width: 100%; height: 8px; accent-color: var(--primary);"></progress>
                 </div>
                 
                 <div>

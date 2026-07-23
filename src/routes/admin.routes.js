@@ -11,6 +11,7 @@ const { myCache } = require('../middleware/cache')
 const fs = require('fs')
 const path = require('path')
 const multer = require('multer')
+const crypto = require('crypto')
 const updatesStore = require('../services/storage/updatesStore')
 
 const router = Router()
@@ -222,20 +223,50 @@ router.post('/updates', upload.single('file'), asyncHandler(async (req) => {
     throw new Error('No update file uploaded')
   }
   
-  const { version, releaseNotes, platform, mandatory } = req.body
+  const { version, releaseNotes, platform, mandatory, channel = 'stable' } = req.body
   if (!version || !platform) {
     throw new Error('Version and platform are required')
   }
 
-  updatesStore.addUpdate(platform, {
+  // Calculate SHA256
+  const hash = crypto.createHash('sha256')
+  const stream = fs.createReadStream(req.file.path)
+  await new Promise((resolve, reject) => {
+    stream.on('data', chunk => hash.update(chunk))
+    stream.on('end', () => resolve())
+    stream.on('error', err => reject(err))
+  })
+  const sha256 = hash.digest('hex')
+
+  updatesStore.addUpdate(platform, channel, {
     version,
     releaseNotes: releaseNotes || '',
     mandatory: mandatory === 'true',
     filename: req.file.originalname,
-    size: req.file.size
+    size: req.file.size,
+    sha256
   })
 
   return { message: 'Update deployed successfully' }
+}))
+
+router.delete('/updates/:platform/:channel/:version', asyncHandler(async (req) => {
+  const { platform, channel, version } = req.params
+  
+  // Find update to delete the physical file
+  const platformData = updatesStore.getUpdates()[platform]
+  if (platformData && platformData[channel]) {
+    const update = platformData[channel].find(u => u.version === version)
+    if (update) {
+      const filePath = path.join(process.cwd(), 'data', 'updates', update.filename)
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath)
+      }
+    }
+  }
+
+  updatesStore.deleteUpdate(platform, channel, version)
+  return { message: 'Update deleted successfully' }
 }))
 
 module.exports = router
