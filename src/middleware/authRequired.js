@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken')
 const { JWT_SECRET } = require('../config/env')
-const userStore = require('../../services/storage/userStore')
+const userStore = require('../services/storage/userStore')
 
 module.exports = (req, res, next) => {
   const header = req.headers.authorization

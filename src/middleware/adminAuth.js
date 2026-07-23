@@ -1,6 +1,6 @@
 const { DEV_EMAILS, DEV_TELEGRAM_IDS } = require('../config/env')
-const userStore = require('../../services/storage/userStore')
-const jwt = require('../../services/auth/jwt')
+const userStore = require('../services/storage/userStore')
+const jwt = require('../services/auth/jwt')
 
 const adminAuth = async (req, res, next) => {
   try {

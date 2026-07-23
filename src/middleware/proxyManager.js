@@ -163,7 +163,7 @@ class ProxyPool {
       // Если все прокси легли — немедленно бьем тревогу в ТГ!
       if (this.healthy === 0) {
         try {
-          const telegramBot = require('../../services/bot/telegramBot')
+          const telegramBot = require('../services/bot/telegramBot')
           telegramBot.sendAdminAlert(
             `🛑 *СРОЧНО: Все прокси легли!*\nПоследний рабочий прокси только что ушел в cooldown.\n` +
             `Пользователи начнут получать ошибки при попытке включить музыку!`
