@@ -540,13 +540,13 @@ async function fetchUpdates() {
       const date = new Date(u.uploadDate).toLocaleString()
       return `
         <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 500;">${platform.toUpperCase()}</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border);">
+          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500;">${platform.toUpperCase()}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
             <span class="badge">v${u.version}</span>
             ${u.mandatory ? '<span class="badge" style="background: #ef4444; color: white; border-color: #ef4444; margin-left: 6px;">Mandatory</span>' : ''}
           </td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted);">${u.filename}</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted);">${date}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${u.filename}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${date}</td>
         </tr>
       `
     }).join('')
