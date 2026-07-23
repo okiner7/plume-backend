@@ -17,6 +17,7 @@ app.set('trust proxy', 1)
 
 // Security Headers
 app.use(helmet({
+  hsts: false, // Отключаем HSTS на бэкенде, так как HTTPS рулится на уровне Cloudflare
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
