@@ -30,11 +30,23 @@ class UpdatesStore {
     fs.writeFileSync(METADATA_FILE, JSON.stringify(this.metadata, null, 2))
   }
 
+  _reload() {
+    if (fs.existsSync(METADATA_FILE)) {
+      try {
+        this.metadata = JSON.parse(fs.readFileSync(METADATA_FILE, 'utf-8'))
+      } catch (err) {
+        // keep old metadata if file is locked or corrupted temporarily
+      }
+    }
+  }
+
   getUpdates() {
+    this._reload()
     return this.metadata
   }
 
   getUpdate(platform) {
+    this._reload()
     return this.metadata[platform] || null
   }
 
