@@ -1,5 +1,5 @@
-let chartInstance = null
-let logsInterval = null
+var chartInstance = null
+var logsInterval = null
 
 function initDashboard() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
