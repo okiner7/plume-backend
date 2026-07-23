@@ -42,8 +42,8 @@ async function login() {
 
     localStorage.setItem('plume_admin_jwt', jwtToken)
     
-    // Now fetch the secure core JS
-    const coreRes = await fetch('/api/admin/core.js', {
+    // Now fetch the secure core JS, bypass cache just in case
+    const coreRes = await fetch(`/api/admin/core.js?_t=${Date.now()}`, {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
     
@@ -51,15 +51,22 @@ async function login() {
     const coreJs = await coreRes.text()
     
     // Execute the secure script
-    const script = document.createElement('script')
-    script.textContent = coreJs
-    document.body.appendChild(script)
+    try {
+      const script = document.createElement('script')
+      script.textContent = coreJs
+      document.body.appendChild(script)
+    } catch (evalErr) {
+      console.error("Error executing core.js:", evalErr)
+    }
 
     document.getElementById('auth-view').classList.remove('active')
     document.getElementById('dashboard-view').classList.add('active')
     
     if (typeof initDashboard === 'function') {
       initDashboard()
+    } else {
+      console.error("initDashboard is not defined! core.js may have failed to execute.")
+      alert("Failed to initialize dashboard. Check console for errors. Try hard-refreshing.")
     }
   } catch (err) {
     alert('Authentication failed: ' + err.message)
