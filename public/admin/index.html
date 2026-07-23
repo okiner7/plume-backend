@@ -242,6 +242,11 @@
                   <textarea id="update-notes" class="input-base" rows="3" placeholder="What's new in this version?" style="width: 100%; box-sizing: border-box;"></textarea>
                 </div>
                 
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="update-mandatory" style="accent-color: var(--primary); width: 16px; height: 16px;">
+                  <label for="update-mandatory" style="margin: 0; cursor: pointer;">This is a mandatory update</label>
+                </div>
+                
                 <div class="form-group">
                   <label style="display: block; margin-bottom: 6px;">Update File (.exe, .dmg, .zip, .apk)</label>
                   <input type="file" id="update-file" class="input-base" required style="width: 100%; box-sizing: border-box; padding: 6px;">

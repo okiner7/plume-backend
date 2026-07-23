@@ -541,7 +541,10 @@ async function fetchUpdates() {
       return `
         <tr>
           <td style="padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 500;">${platform.toUpperCase()}</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border);"><span class="badge">v${u.version}</span></td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid var(--border);">
+            <span class="badge">v${u.version}</span>
+            ${u.mandatory ? '<span class="badge" style="background: #ef4444; color: white; border-color: #ef4444; margin-left: 6px;">Mandatory</span>' : ''}
+          </td>
           <td style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted);">${u.filename}</td>
           <td style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted);">${date}</td>
         </tr>
@@ -559,6 +562,7 @@ document.getElementById('form-upload-update')?.addEventListener('submit', async 
   const platform = document.getElementById('update-platform').value
   const version = document.getElementById('update-version').value
   const notes = document.getElementById('update-notes').value
+  const isMandatory = document.getElementById('update-mandatory').checked
   const fileInput = document.getElementById('update-file')
   const statusSpan = document.getElementById('update-status')
   const btn = document.getElementById('btn-deploy-update')
@@ -570,6 +574,7 @@ document.getElementById('form-upload-update')?.addEventListener('submit', async 
   formData.append('platform', platform)
   formData.append('version', version)
   formData.append('releaseNotes', notes)
+  formData.append('mandatory', isMandatory)
   formData.append('file', file)
   
   try {

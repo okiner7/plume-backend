@@ -22,6 +22,7 @@ router.get('/latest', (req, res) => {
     success: true,
     version: update.version,
     releaseNotes: update.releaseNotes,
+    mandatory: !!update.mandatory,
     url: downloadUrl,
     uploadDate: update.uploadDate
   })

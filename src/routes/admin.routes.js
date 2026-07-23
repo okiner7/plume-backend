@@ -222,7 +222,7 @@ router.post('/updates', upload.single('file'), asyncHandler(async (req) => {
     throw new Error('No update file uploaded')
   }
   
-  const { version, releaseNotes, platform } = req.body
+  const { version, releaseNotes, platform, mandatory } = req.body
   if (!version || !platform) {
     throw new Error('Version and platform are required')
   }
@@ -230,6 +230,7 @@ router.post('/updates', upload.single('file'), asyncHandler(async (req) => {
   updatesStore.addUpdate(platform, {
     version,
     releaseNotes: releaseNotes || '',
+    mandatory: mandatory === 'true',
     filename: req.file.originalname,
     size: req.file.size
   })
