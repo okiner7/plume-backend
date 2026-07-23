@@ -61,7 +61,14 @@ router.get('/stream', asyncHandler(async (req) => {
     if (url) {
       // FIX SSRF: restrict fallback URL to SoundCloud domains
       const safeUrl = String(url)
-      if (!safeUrl.startsWith('https://api-v2.soundcloud.com/') && !safeUrl.startsWith('https://soundcloud.com/')) {
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(safeUrl)
+      } catch (e) {
+        throw new Error('Invalid URL format')
+      }
+      
+      if (parsedUrl.hostname !== 'api-v2.soundcloud.com' && parsedUrl.hostname !== 'soundcloud.com') {
         throw new Error('Invalid SoundCloud URL')
       }
       const data = await sc.request(safeUrl)
