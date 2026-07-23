@@ -93,6 +93,7 @@ const ALLOWED_ORIGINS = [
   /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?$/,
   /^https:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?$/,
   /^plume:\/\//,                   // Electron deep-link
+  /^https:\/\/(www\.)?plumeoff\.ru$/
 ]
 app.use(cors({
   origin: (origin, callback) => {

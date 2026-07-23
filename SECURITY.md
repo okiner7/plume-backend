@@ -20,7 +20,7 @@
 | [LNX-2026-002](#lnx-2026-002) | 🔴 CRITICAL (9.1) | Hardcoded JWT_SECRET fallback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-013](#lnx-2026-013) | 🔴 HIGH (8.5) | Open SSRF via `/api/sc/stream` fallback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-018](#lnx-2026-018) | 🔴 HIGH (8.2) | APP_SECRET hardcoded in Electron main.js (plaintext) | ✅ Fixed | `security/fix-018-023` |
-| [LNX-2026-003](#lnx-2026-003) | 🔴 HIGH (8.1) | Unencrypted HTTP transport (no TLS) | ⚠️ Partial | Needs TLS cert on server |
+| [LNX-2026-003](#lnx-2026-003) | 🔴 HIGH (8.1) | Unencrypted HTTP transport (no TLS) | ✅ Fixed | Cloudflare Proxy |
 | [LNX-2026-024](#lnx-2026-024) | 🟠 HIGH (7.4) | Auth code generated with `Math.random()` (not cryptographically secure) | ✅ Fixed | `security/fix-024-027` |
 | [LNX-2026-016](#lnx-2026-016) | 🟠 HIGH (7.4) | Open Redirect in Google OAuth Callback | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-028](#lnx-2026-028) | 🟠 HIGH (7.1) | CSS Injection via unsanitized community theme CSS variables | ✅ Fixed | `security/fix-028-030` |
@@ -91,13 +91,11 @@ The `APP_SECRET` used for HMAC request signing was hardcoded as `'my-super-secre
 
 All traffic between the Electron client and backend is sent over plain HTTP. JWT tokens and HMAC signatures are visible to anyone on the same network via MITM.
 
-**Status: Partial** — Requires configuring TLS/HTTPS on the server with a certificate. The codebase is ready; infrastructure change needed.
+**Status: Fixed** — The domain is now proxied through Cloudflare, providing Automatic HTTPS/TLS terminating.
 
-**Recommended fix:**
+**Recommended fix (Applied):**
 ```
-# On server VM:
-sudo certbot certonly --standalone -d yourdomain.com
-# Update BASE in electron/main.js and client.js to https://
+Enabled Cloudflare proxy (orange cloud) for the backend domain.
 ```
 
 ---
