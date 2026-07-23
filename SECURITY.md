@@ -46,6 +46,9 @@
 | [LNX-2026-029](#lnx-2026-029) | 🟢 LOW (3.2) | Queue unbounded — `localStorage` bloat / DoS | ✅ Fixed | `security/fix-028-030` |
 | [LNX-2026-030](#lnx-2026-030) | 🟢 LOW (3.2) | `useStats` topTracks/topArtists unbounded — `localStorage` bloat | ✅ Fixed | `security/fix-028-030` |
 | [LNX-2026-023](#lnx-2026-023) | 🟢 LOW (3.1) | Discord RPC `track.title` sent without length limit | ✅ Fixed | `security/fix-018-023` |
+| [LNX-2026-031](#lnx-2026-031) | 🔴 HIGH (8.2) | SSRF Bypass in `/api/sc/stream` fallback via malformed hostname | ✅ Fixed | `security/cve-fixes` |
+| [LNX-2026-032](#lnx-2026-032) | 🟠 HIGH (7.0) | Cache Exhaustion DoS via unbounded query strings | ⏳ Backlog | Needs `maxKeys` limit |
+| [LNX-2026-033](#lnx-2026-033) | 🟡 MEDIUM (5.5) | DB Bloat via unbounded `themeData` payload | ⏳ Backlog | Needs payload size limit |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
@@ -433,6 +436,43 @@ The theme download counter endpoint was publicly accessible with no rate limitin
 The `?history=` query parameter in the `/api/yt/upnext` route was split on commas without any length limit. A request with tens of thousands of comma-separated IDs would create an enormous array processed by the recommendation logic, causing CPU/memory spikes (application-layer DoS).
 
 **Fix:** History array is now capped at **50 IDs** with `.slice(0, 50)`.
+
+---
+
+### LNX-2026-031
+**SSRF Bypass in `/api/sc/stream` fallback via malformed hostname**  
+**CVSS: 8.2 (High)** · `AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N`
+
+The previous fix for SSRF in `soundcloud.routes.js` (LNX-2026-013) validated URLs using `String.prototype.startsWith('https://api-v2.soundcloud.com/')`. This is vulnerable to an `@` bypass. An attacker could provide a URL like `https://api-v2.soundcloud.com@attacker.com/`, which satisfies the `startsWith` check but causes Axios to send the request to `attacker.com` (treating `api-v2.soundcloud.com` as HTTP basic auth credentials).
+
+**Fix:** Switched to strict parsing using the `URL` object and validating the `hostname` property directly.
+
+```js
+const parsedUrl = new URL(safeUrl)
+if (parsedUrl.hostname !== 'api-v2.soundcloud.com' && parsedUrl.hostname !== 'soundcloud.com') {
+  throw new Error('Invalid SoundCloud URL')
+}
+```
+
+---
+
+### LNX-2026-032
+**Cache Exhaustion DoS via Unbounded Query Strings**  
+**CVSS: 7.0 (High)** · `AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H`
+
+The `cacheMiddleware` in `src/middleware/cache.js` uses `req.originalUrl` as the cache key, which includes all query parameters. An attacker can repeatedly query an endpoint with random parameters (e.g., `/api/yt/search?q=rnd1`, `/api/yt/search?q=rnd2`). Since the in-memory `NodeCache` instance does not have a `maxKeys` limit configured, this allows an attacker to exhaust the Node.js process memory, resulting in an OOM crash.
+
+**Status: Backlog** — Needs configuring `maxKeys` for `NodeCache` or enforcing strict query parameter validation.
+
+---
+
+### LNX-2026-033
+**DB Bloat via Unbounded `themeData` Payload**  
+**CVSS: 5.5 (Medium)** · `AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L`
+
+In `themes.routes.js`, the `themeData` object submitted by users when publishing a theme is not size-limited or structurally validated before being saved to MongoDB. A malicious authenticated user can submit up to 10 themes, each containing a massive multi-megabyte `themeData` object, contributing to severe DB bloat and potential performance degradation.
+
+**Status: Backlog** — Needs strict payload size limits and key/value validation for the `themeData` JSON structure.
 
 ---
 
