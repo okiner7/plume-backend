@@ -4,17 +4,25 @@ const { redis } = require('../src/middleware/cache');
 beforeAll(async () => {
   // Wait for the database connection promise to resolve
   if (db.connectPromise) {
-    await db.connectPromise;
+    try {
+      await db.connectPromise;
+    } catch (err) {
+      // Allow test execution when DB is offline
+    }
   }
 });
 
 afterAll(async () => {
   // Close database to prevent Jest from hanging
   if (db.client) {
-    await db.client.close();
+    try {
+      await db.client.close();
+    } catch (err) {}
   }
   // Close Redis connection
   if (redis) {
-    redis.quit();
+    try {
+      redis.quit();
+    } catch (err) {}
   }
 });

@@ -1,4 +1,5 @@
 require('dotenv').config()
+const http = require('http')
 const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
@@ -10,6 +11,7 @@ const telegramBot = require('./services/bot/telegramBot')
 const proxyHealth = require('./services/health/proxyHealth')
 const yt = require('./services/youtube')
 const { apiTracker, syncApiStats } = require('./middleware/apiTracker')
+const { initSocketServer } = require('./socket')
 
 const app = express()
 
@@ -51,7 +53,7 @@ const crypto = require('crypto')
 
 app.use((req, res, next) => {
   // Allow Telegram Webhooks, Status, Root endpoint, OAuth routes, static Admin UI, and favicon
-  if (req.path === '/api/status' || req.path === '/' || req.path === '/favicon.ico' || req.path.startsWith('/auth/') || req.path.startsWith('/admin') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/updates') || req.method === 'OPTIONS') return next()
+  if (req.path === '/api/status' || req.path === '/' || req.path === '/favicon.ico' || req.path.startsWith('/auth/') || req.path.startsWith('/admin') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/updates') || req.path.startsWith('/socket.io') || req.method === 'OPTIONS') return next()
   
   const timestamp = req.headers['x-plume-timestamp']
   const signature = req.headers['x-plume-signature']
@@ -96,7 +98,7 @@ const ALLOWED_ORIGINS = [
   /^plume:\/\//,                   // Electron deep-link
   /^https?:\/\/(www\.|api\.)?plumeoff\.ru$/
 ]
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     // Атомарные запросы (Electron, curl, mobile) — пропускаем
     if (!origin) return callback(null, true)
@@ -104,8 +106,15 @@ app.use(cors({
     callback(new Error(`CORS: origin '${origin}' not allowed`))
   },
   maxAge: 86400
-}))
+}
+app.use(cors(corsOptions))
 app.use(express.json())
+
+// HTTP Server and Socket.io setup
+const server = http.createServer(app)
+const io = initSocketServer(server, corsOptions)
+app.server = server
+app.io = io
 
 app.use(apiTracker)
 app.use(routes)
@@ -117,7 +126,7 @@ app.use((err, req, res, next) => {
 
 if (require.main === module) {
   const PORT = process.env.PORT || 3000
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
     
     if (isPrimaryWorker) {
@@ -144,3 +153,4 @@ if (require.main === module) {
 }
 
 module.exports = app
+

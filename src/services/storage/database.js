@@ -1,7 +1,10 @@
 const { MongoClient } = require('mongodb')
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/plume'
-const client = new MongoClient(MONGO_URI)
+const client = new MongoClient(MONGO_URI, {
+  serverSelectionTimeoutMS: process.env.NODE_ENV === 'test' ? 1000 : 30000,
+  connectTimeoutMS: process.env.NODE_ENV === 'test' ? 1000 : 30000
+})
 
 const db = {}
 
@@ -43,8 +46,10 @@ async function connectDB() {
       db.apiStats.createIndex({ timestamp: 1 })
     })
     .catch(err => {
-      console.error('[MongoDB] Connection error:', err)
-      process.exit(1)
+      console.error('[MongoDB] Connection error:', err.message || err)
+      if (process.env.NODE_ENV !== 'test') {
+        process.exit(1)
+      }
     })
   return connectPromise
 }
