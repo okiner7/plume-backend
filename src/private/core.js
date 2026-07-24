@@ -185,64 +185,49 @@ async function fetchApiStats() {
     const res = await apiRequest('/stats/api')
     const stats = Array.isArray(res) ? res : (res.data || [])
     
-    // Update table
-    const tbody = document.getElementById('api-stats-tbody')
-    if (tbody) {
-      tbody.innerHTML = ''
-      if (stats.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted)">No data available for the last 24h</td></tr>'
-      } else {
-        stats.forEach(s => {
-          const tr = document.createElement('tr')
-          tr.innerHTML = `
-            <td><code>${s.endpoint}</code></td>
-            <td><strong>${s.count}</strong></td>
-          `
-          tbody.appendChild(tr)
-        })
-      }
+    const listContainer = document.getElementById('api-stats-list')
+    if (!listContainer) return
+    listContainer.innerHTML = ''
+
+    if (stats.length === 0) {
+      listContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted)">No data available for the last 24h</div>'
+      return
     }
 
-    // Render chart (Top 10)
-    renderApiChart(stats.slice(0, 10))
+    const maxCount = Math.max(...stats.map(s => s.count), 1)
+
+    // Render Top 20 endpoints
+    stats.slice(0, 20).forEach(s => {
+      const percentage = (s.count / maxCount) * 100
+
+      const container = document.createElement('div')
+      container.className = 'api-bar-container'
+
+      const label = document.createElement('div')
+      label.className = 'api-bar-label'
+      label.innerText = s.endpoint
+
+      const value = document.createElement('div')
+      value.className = 'api-bar-value'
+      value.innerText = s.count
+
+      const track = document.createElement('div')
+      track.className = 'api-bar-track'
+
+      const fill = document.createElement('div')
+      fill.className = 'api-bar-fill'
+      fill.style.width = `${percentage}%`
+
+      track.appendChild(fill)
+      container.appendChild(label)
+      container.appendChild(value)
+      container.appendChild(track)
+
+      listContainer.appendChild(container)
+    })
   } catch (err) {
     console.error('Failed to load API stats', err)
   }
-}
-
-function renderApiChart(data) {
-  const ctx = document.getElementById('apiChart')?.getContext('2d')
-  if (!ctx) return
-  
-  const labels = data.map(d => d.endpoint)
-  const counts = data.map(d => d.count)
-
-  if (apiChartInstance) apiChartInstance.destroy()
-
-  apiChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Requests (24h)',
-        data: counts,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-        borderRadius: 4
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      color: '#ededed',
-      scales: {
-        x: { grid: { display: false }, ticks: { color: '#888888', maxRotation: 45, minRotation: 45 } },
-        y: { grid: { color: '#222222' }, ticks: { color: '#888888' } }
-      },
-      plugins: {
-        legend: { display: false }
-      }
-    }
-  })
 }
 
 async function fetchProxies() {
