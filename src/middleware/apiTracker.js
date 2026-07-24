@@ -24,8 +24,8 @@ function apiTracker(req, res, next) {
     return next()
   }
 
-  // Skip polling endpoints from admin itself to avoid polluting stats
-  if (req.path === '/api/admin/logs' || req.path === '/api/admin/metrics' || req.path === '/api/admin/stats/api') {
+  // Skip all admin routes to avoid polluting stats with admin activity
+  if (req.path.startsWith('/api/admin')) {
     return next()
   }
 
