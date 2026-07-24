@@ -1,4 +1,5 @@
 var chartInstance = null
+var apiChartInstance = null
 var logsInterval = null
 
 function initDashboard() {
@@ -9,6 +10,7 @@ function initDashboard() {
   document.getElementById('btn-reset-proxies')?.addEventListener('click', resetProxies)
   document.getElementById('btn-add-proxy')?.addEventListener('click', addProxy)
   document.getElementById('btn-refresh-insights')?.addEventListener('click', fetchInsights)
+  document.getElementById('btn-refresh-api')?.addEventListener('click', fetchApiStats)
   document.getElementById('btn-close-user-modal')?.addEventListener('click', () => document.getElementById('user-modal').classList.remove('active'))
   document.getElementById('btn-flush-cache')?.addEventListener('click', flushCache)
   document.getElementById('btn-restart-server')?.addEventListener('click', restartServer)
@@ -82,6 +84,7 @@ function switchTab(tabId) {
   else if (tabId === 'users') fetchRecentUsers()
   else if (tabId === 'proxies') fetchProxies()
   else if (tabId === 'insights') fetchInsights()
+  else if (tabId === 'api') fetchApiStats()
   else if (tabId === 'updates') fetchUpdates()
   else if (tabId === 'logs') {
     fetchLogs()
@@ -172,6 +175,71 @@ function updateChart(history) {
       },
       plugins: {
         legend: { labels: { color: '#ededed' } }
+      }
+    }
+  })
+}
+
+async function fetchApiStats() {
+  try {
+    const res = await apiRequest('/stats/api')
+    const stats = Array.isArray(res) ? res : (res.data || [])
+    
+    // Update table
+    const tbody = document.getElementById('api-stats-tbody')
+    if (tbody) {
+      tbody.innerHTML = ''
+      if (stats.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted)">No data available for the last 24h</td></tr>'
+      } else {
+        stats.forEach(s => {
+          const tr = document.createElement('tr')
+          tr.innerHTML = `
+            <td><code>${s.endpoint}</code></td>
+            <td><strong>${s.count}</strong></td>
+          `
+          tbody.appendChild(tr)
+        })
+      }
+    }
+
+    // Render chart (Top 10)
+    renderApiChart(stats.slice(0, 10))
+  } catch (err) {
+    console.error('Failed to load API stats', err)
+  }
+}
+
+function renderApiChart(data) {
+  const ctx = document.getElementById('apiChart')?.getContext('2d')
+  if (!ctx) return
+  
+  const labels = data.map(d => d.endpoint)
+  const counts = data.map(d => d.count)
+
+  if (apiChartInstance) apiChartInstance.destroy()
+
+  apiChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Requests (24h)',
+        data: counts,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      color: '#ededed',
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#888888', maxRotation: 45, minRotation: 45 } },
+        y: { grid: { color: '#222222' }, ticks: { color: '#888888' } }
+      },
+      plugins: {
+        legend: { display: false }
       }
     }
   })

@@ -40,6 +40,7 @@
           <button class="tab-btn" data-tab="users">Users</button>
           <button class="tab-btn" data-tab="proxies">Proxies</button>
           <button class="tab-btn" data-tab="insights">Insights</button>
+          <button class="tab-btn" data-tab="api">API</button>
           <button class="tab-btn" data-tab="logs">Logs</button>
           <button class="tab-btn" data-tab="system">System</button>
           <button class="tab-btn" data-tab="updates">Updates</button>
@@ -89,6 +90,40 @@
           <div class="card mt-6">
             <div class="chart-container">
               <canvas id="metricsChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: API DASHBOARD -->
+        <div id="tab-api" class="tab-pane">
+          <div class="page-header">
+            <h2>API Activity (Last 24h)</h2>
+            <button id="btn-refresh-api" class="btn-secondary">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.58 5.58"/></svg>
+              Refresh
+            </button>
+          </div>
+
+          <div class="card mt-6">
+            <div class="chart-container" style="height: 300px;">
+              <canvas id="apiChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card mt-6">
+            <h3>Top Endpoints</h3>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Endpoint</th>
+                    <th>Requests (24h)</th>
+                  </tr>
+                </thead>
+                <tbody id="api-stats-tbody">
+                  <!-- JS injected -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

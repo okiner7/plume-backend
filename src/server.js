@@ -9,6 +9,7 @@ const routes = require('./routes')
 const telegramBot = require('./services/bot/telegramBot')
 const proxyHealth = require('./services/health/proxyHealth')
 const yt = require('./services/youtube')
+const { apiTracker, syncApiStats } = require('./middleware/apiTracker')
 
 const app = express()
 
@@ -106,6 +107,7 @@ app.use(cors({
 }))
 app.use(express.json())
 
+app.use(apiTracker)
 app.use(routes)
 
 app.use((err, req, res, next) => {
@@ -130,6 +132,8 @@ if (require.main === module) {
       if (isPrimaryWorker) {
         telegramBot.start()
         proxyHealth.start()
+        // Sync API stats every hour
+        setInterval(syncApiStats, 60 * 60 * 1000)
       } else {
         console.log(`[Worker] Secondary instance started (Instance ${process.env.NODE_APP_INSTANCE})`)
       }

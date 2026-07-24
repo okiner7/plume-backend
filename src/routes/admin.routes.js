@@ -206,6 +206,40 @@ router.get('/metrics/history', asyncHandler(async (req) => {
   return []
 }))
 
+router.get('/stats/api', asyncHandler(async (req) => {
+  if (!redis || redis.status !== 'ready') return []
+  
+  const now = Date.now()
+  const oneHour = 60 * 60 * 1000
+  
+  // Generate keys for the last 24 hours
+  const keys = []
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now - (i * oneHour))
+    const year = d.getUTCFullYear()
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(d.getUTCDate()).padStart(2, '0')
+    const hour = String(d.getUTCHours()).padStart(2, '0')
+    keys.push(`api:stats:${year}-${month}-${day}-${hour}`)
+  }
+
+  const aggregated = {}
+  
+  for (const key of keys) {
+    const data = await redis.hgetall(key)
+    for (const [endpoint, countStr] of Object.entries(data)) {
+      aggregated[endpoint] = (aggregated[endpoint] || 0) + parseInt(countStr, 10)
+    }
+  }
+
+  const result = Object.entries(aggregated)
+    .map(([endpoint, count]) => ({ endpoint, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50) // top 50
+
+  return result
+}))
+
 router.post('/restart', asyncHandler(async (req) => {
   // Respond first, then exit
   setTimeout(() => {

@@ -28,6 +28,7 @@ async function connectDB() {
       db.themes = mdb.collection('themes')
       db.stats = mdb.collection('stats')
       db.trackStats = mdb.collection('track_stats')
+      db.apiStats = mdb.collection('api_stats')
 
       // Ensure Indexes
       db.users.createIndex({ providerId: 1 }, { unique: true })
@@ -39,6 +40,7 @@ async function connectDB() {
       db.authCodes.createIndex({ telegramId: 1 })
       db.listeningHist.createIndex({ userId: 1 })
       db.trackStats.createIndex({ id: 1 }, { unique: true })
+      db.apiStats.createIndex({ timestamp: 1 })
     })
     .catch(err => {
       console.error('[MongoDB] Connection error:', err)
