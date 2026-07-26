@@ -28,19 +28,22 @@ async function create(telegramId, name, avatar) {
   }
   
   await removeByTelegramId(telegramId)
-  await db.authCodes.insertOne(doc)
+  if (db.authCodes) await db.authCodes.insertOne(doc)
   return doc
 }
 
 async function findByCode(code) {
+  if (!db.authCodes) return null
   return await db.authCodes.findOne({ code: code.toUpperCase() })
 }
 
 async function removeByTelegramId(telegramId) {
+  if (!db.authCodes) return
   return await db.authCodes.deleteMany({ telegramId })
 }
 
 async function remove(id) {
+  if (!db.authCodes) return
   return await db.authCodes.deleteOne({ _id: id })
 }
 

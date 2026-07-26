@@ -22,7 +22,7 @@ async function findOrCreate(provider, providerId, profile) {
       lastLoginAt: new Date(),
       banned: false
     }
-    await db.users.insertOne(doc)
+    if (db.users) await db.users.insertOne(doc)
     return { ...doc, userId: buildUserId(provider, providerId) }
   }
   await update(user._id, { lastLoginAt: new Date(), lastActiveAt: new Date(), name: profile.name || user.name, avatar: profile.avatar || user.avatar })
@@ -30,10 +30,12 @@ async function findOrCreate(provider, providerId, profile) {
 }
 
 async function findOne(providerId) {
+  if (!db.users) return null
   return await db.users.findOne({ providerId })
 }
 
 async function update(id, fields) {
+  if (!db.users) return
   return await db.users.updateOne({ _id: id }, { $set: fields })
 }
 
@@ -87,6 +89,7 @@ async function updateLastActive(providerId, platform = 'unknown') {
 }
 
 async function countActiveUsers() {
+  if (!db.users) return { windows: 0, linux: 0, android: 0, unknown: 0 }
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
   const docs = await db.users.find({ lastActiveAt: { $gte: oneDayAgo } }).toArray()
   
@@ -117,6 +120,7 @@ async function addBadge(providerId, badge) {
 }
 
 async function countAllUsers() {
+  if (!db.users) return { windows: 0, linux: 0, android: 0, unknown: 0 }
   const docs = await db.users.find({}).toArray()
   
   const counts = { windows: 0, linux: 0, android: 0, unknown: 0 }

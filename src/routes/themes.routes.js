@@ -2,6 +2,8 @@ const { Router } = require('express')
 const asyncHandler = require('../middleware/asyncHandler')
 const authRequired = require('../middleware/authRequired')
 const themeStore = require('../services/storage/themeStore')
+const { validateBody } = require('../middleware/validate')
+const { createThemeSchema, downloadThemeSchema, postThemeSchema } = require('../schemas/theme.schema')
 
 const router = Router()
 
@@ -12,7 +14,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 // Protected endpoint to publish a theme
-router.post('/', authRequired, asyncHandler(async (req) => {
+router.post('/', authRequired, validateBody(postThemeSchema), asyncHandler(async (req) => {
   // LNX-2026-009 Fix: sanitize length and types
   const name = String(req.body.name || '').trim().slice(0, 100)
   const themeData = req.body.themeData
@@ -33,7 +35,7 @@ const downloadLimiter = rateLimit({
   max: 10,
   message: { success: false, error: 'Too many requests' }
 })
-router.post('/:id/download', downloadLimiter, asyncHandler(async (req) => {
+router.post('/:id/download', downloadLimiter, validateBody(downloadThemeSchema), asyncHandler(async (req) => {
   const id = String(req.params.id)
   await themeStore.incrementDownloads(id)
   return { success: true }

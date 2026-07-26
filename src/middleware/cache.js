@@ -35,7 +35,7 @@ const cacheMiddleware = (duration = 7200) => {
     const key = `plume:${req.originalUrl}`
 
     // Чтение из кэша
-    if (redis) {
+    if (redis && redis.status === 'ready') {
       try {
         const cached = await redis.get(key)
         if (cached) return res.json(JSON.parse(cached))
@@ -51,7 +51,7 @@ const cacheMiddleware = (duration = 7200) => {
     const originalJson = res.json.bind(res)
     res.json = async (body) => {
       if (body && body.success !== false) {
-        if (redis) {
+        if (redis && redis.status === 'ready') {
           try {
             await redis.setex(key, duration, JSON.stringify(body))
           } catch (err) {
@@ -70,7 +70,7 @@ const cacheMiddleware = (duration = 7200) => {
 
 const myCache = {
   async getStats() {
-    if (redis) {
+    if (redis && redis.status === 'ready') {
       try {
         const info = await redis.info('memory')
         const memMatch = info.match(/used_memory:(\d+)/)
@@ -85,7 +85,7 @@ const myCache = {
     }
   },
   async flushAll() {
-    if (redis) {
+    if (redis && redis.status === 'ready') {
       try {
         await redis.flushdb()
         return 1

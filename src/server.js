@@ -4,7 +4,7 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const compression = require('compression')
-const rateLimit = require('express-rate-limit')
+const { globalLimiter } = require('./middleware/rateLimiter')
 const morgan = require('morgan')
 const routes = require('./routes')
 const telegramBot = require('./services/bot/telegramBot')
@@ -16,7 +16,7 @@ const { initSocketServer } = require('./socket')
 const app = express()
 
 // Доверяем Nginx и Cloudflare (читаем реальные IP-адреса пользователей)
-app.set('trust proxy', 1)
+app.set('trust proxy', true)
 
 // Security Headers
 app.use(helmet({
@@ -83,13 +83,8 @@ app.use((req, res, next) => {
   next()
 })
 
-// Rate Limiting (max 500 requests per 10 minutes per IP)
-const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 500,
-  message: { success: false, error: 'Вы превысили лимит запросов. Блокировка на 10 минут.' }
-})
-app.use(limiter)
+// Global Rate Limiting (100 requests per 15 minutes per IP)
+app.use(globalLimiter)
 
 // CORS — разрешаем только конкретные origins (LNX-2026-008 fix)
 const ALLOWED_ORIGINS = [

@@ -7,10 +7,13 @@ const { DEV_EMAILS, DEV_TELEGRAM_IDS, FRONTEND_URL } = require('../config/env')
 const userStore = require('../services/storage/userStore')
 const badgeStore = require('../services/storage/badgeStore')
 const authCodeStore = require('../services/storage/authCodeStore')
+const { strictAuthLimiter } = require('../middleware/rateLimiter')
+const { validateBody } = require('../middleware/validate')
+const { telegramAuthSchema, verifyCodeSchema } = require('../schemas/auth.schema')
 
 const router = Router()
 
-router.get('/google', (req, res) => {
+router.get('/google', strictAuthLimiter, (req, res) => {
   const state = req.query.callback || ''
   res.redirect(google.getAuthUrl(state))
 })
@@ -27,7 +30,7 @@ function isSafeCallback(callbackUrl) {
   }
 }
 
-router.get('/google/callback', asyncHandler(async (req, res) => {
+router.get('/google/callback', strictAuthLimiter, asyncHandler(async (req, res) => {
   const { code, state } = req.query
   const callback = req.query.callback || state
   if (!code) throw new Error('Authorization code required')
@@ -58,7 +61,7 @@ router.get('/google/callback', asyncHandler(async (req, res) => {
   res.redirect(`${redirectUrl}?token=${token}`)
 }))
 
-router.post('/telegram', asyncHandler(async (req) => {
+router.post('/telegram', strictAuthLimiter, validateBody(telegramAuthSchema), asyncHandler(async (req) => {
   const data = req.body
   const profile = telegram.validateAuthData(data)
   if (!profile) throw new Error('Invalid Telegram auth data')
@@ -83,16 +86,7 @@ router.post('/telegram', asyncHandler(async (req) => {
   return { token, user: { ...profile, badges: await userStore.getBadges(profile.telegramId) } }
 }))
 
-// LNX-2026-005 fix: строгий rate limit на эндпоинт ввода кода (5 попыток за 5 минут) — защита от брутфорса
-const rateLimit = require('express-rate-limit')
-const verifyCodeLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  message: { success: false, error: 'Превышен лимит попыток. Подождите 5 минут.' }
-})
-
-router.post('/verify-code', verifyCodeLimiter, asyncHandler(async (req) => {
+router.post('/verify-code', strictAuthLimiter, validateBody(verifyCodeSchema), asyncHandler(async (req) => {
   const { code } = req.body
   if (!code) throw new Error('Code required')
 

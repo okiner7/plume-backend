@@ -17,6 +17,7 @@ async function incrementSearchCount() {
 }
 
 async function getGlobalStats() {
+  if (!db.stats) return { totalListens: 0, totalSearches: 0 }
   const doc = await db.stats.findOne({ _id: 'global' })
   return {
     totalListens: doc ? (doc.totalListens || 0) : 0,

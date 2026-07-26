@@ -6,7 +6,74 @@ const client = new MongoClient(MONGO_URI, {
   connectTimeoutMS: process.env.NODE_ENV === 'test' ? 1000 : 30000
 })
 
-const db = {}
+function createDummyCollection() {
+  const docs = []
+  return {
+    find: (query = {}) => {
+      let filtered = docs.filter(d => {
+        for (const [k, v] of Object.entries(query)) {
+          if (d[k] !== v) return false
+        }
+        return true
+      })
+      return {
+        sort: () => ({ limit: (n) => ({ toArray: async () => filtered.slice(0, n) }), toArray: async () => filtered }),
+        project: () => ({ toArray: async () => filtered }),
+        limit: (n) => ({ toArray: async () => filtered.slice(0, n) }),
+        toArray: async () => filtered
+      }
+    },
+    findOne: async (query = {}) => {
+      if (!query || Object.keys(query).length === 0) return docs[0] || null
+      return docs.find(d => {
+        for (const [k, v] of Object.entries(query)) {
+          if (d[k] !== v) return false
+        }
+        return true
+      }) || null
+    },
+    insertOne: async (doc) => {
+      docs.push(doc)
+      return { insertedId: doc._id || 'mock_id' }
+    },
+    updateOne: async () => ({ modifiedCount: 1 }),
+    replaceOne: async () => ({ modifiedCount: 1 }),
+    deleteOne: async (query = {}) => {
+      const idx = docs.findIndex(d => {
+        for (const [k, v] of Object.entries(query)) {
+          if (d[k] !== v) return false
+        }
+        return true
+      })
+      if (idx !== -1) docs.splice(idx, 1)
+      return { deletedCount: 1 }
+    },
+    countDocuments: async (query = {}) => {
+      if (!query || Object.keys(query).length === 0) return docs.length
+      return docs.filter(d => {
+        for (const [k, v] of Object.entries(query)) {
+          if (d[k] !== v) return false
+        }
+        return true
+      }).length
+    },
+    createIndex: async () => {}
+  }
+}
+
+const db = {
+  users: createDummyCollection(),
+  likes: createDummyCollection(),
+  playlists: createDummyCollection(),
+  settings: createDummyCollection(),
+  searchHist: createDummyCollection(),
+  authCodes: createDummyCollection(),
+  listeningHist: createDummyCollection(),
+  themes: createDummyCollection(),
+  stats: createDummyCollection(),
+  trackStats: createDummyCollection(),
+  apiStats: createDummyCollection()
+}
 
 let connectPromise = null
 

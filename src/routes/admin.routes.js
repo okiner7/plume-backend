@@ -13,6 +13,18 @@ const path = require('path')
 const multer = require('multer')
 const crypto = require('crypto')
 const updatesStore = require('../services/storage/updatesStore')
+const { validateBody } = require('../middleware/validate')
+const {
+  proxySchema,
+  resetProxiesSchema,
+  banUserSchema,
+  restartSchema,
+  updateSchema,
+  rollbackSchema,
+  addProxySchema,
+  postUpdateSchema,
+  rollbackUpdateSchema
+} = require('../schemas/admin.schema')
 
 const router = Router()
 
@@ -95,7 +107,7 @@ router.get('/proxies', asyncHandler(async (req) => {
   return proxyManager.getProxyStats().proxies
 }))
 
-router.post('/proxies', asyncHandler(async (req) => {
+router.post('/proxies', validateBody(addProxySchema), asyncHandler(async (req) => {
   const { url } = req.body
   if (!url) throw new Error('Proxy URL required')
   const added = proxyManager.addProxy(url)
@@ -111,7 +123,7 @@ router.delete('/proxies', asyncHandler(async (req) => {
   return { message: 'Proxy removed successfully' }
 }))
 
-router.post('/proxies/reset', asyncHandler(async (req) => {
+router.post('/proxies/reset', validateBody(resetProxiesSchema), asyncHandler(async (req) => {
   // Hacky way to reset cooldowns: we iterate over the internal pool
   const pool = proxyManager._pool
   let resetCount = 0
@@ -141,7 +153,7 @@ router.delete('/cache', asyncHandler(async (req) => {
   return { message: 'Cache cleared successfully', keysCleared }
 }))
 
-router.post('/users/:id/ban', asyncHandler(async (req) => {
+router.post('/users/:id/ban', validateBody(banUserSchema), asyncHandler(async (req) => {
   const userId = req.params.id
   await userStore.setBanStatus(userId, true)
   return { message: 'User banned successfully' }
@@ -240,7 +252,7 @@ router.get('/stats/api', asyncHandler(async (req) => {
   return result
 }))
 
-router.post('/restart', asyncHandler(async (req) => {
+router.post('/restart', validateBody(restartSchema), asyncHandler(async (req) => {
   // Respond first, then exit
   setTimeout(() => {
     process.exit(0)
@@ -252,7 +264,7 @@ router.get('/updates', asyncHandler(async (req) => {
   return updatesStore.getUpdates()
 }))
 
-router.post('/updates', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'blockmap', maxCount: 1 }]), asyncHandler(async (req) => {
+router.post('/updates', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'blockmap', maxCount: 1 }]), validateBody(postUpdateSchema), asyncHandler(async (req) => {
   if (!req.files || !req.files['file']) {
     throw new Error('No update file uploaded')
   }
@@ -288,7 +300,7 @@ router.post('/updates', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'b
   return { message: 'Update deployed successfully' }
 }))
 
-router.post('/updates/rollback/:platform/:channel/:version', asyncHandler(async (req) => {
+router.post('/updates/rollback/:platform/:channel/:version', validateBody(rollbackUpdateSchema), asyncHandler(async (req) => {
   const { platform, channel, version } = req.params
   const platformData = updatesStore.getUpdates()[platform]
   if (!platformData || !platformData[channel]) {

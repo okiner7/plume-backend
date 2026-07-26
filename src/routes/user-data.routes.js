@@ -7,6 +7,23 @@ const settingsStore = require('../services/storage/settingsStore')
 const searchHistoryStore = require('../services/storage/searchHistoryStore')
 const listeningHistoryStore = require('../services/storage/listeningHistoryStore')
 const userStore = require('../services/storage/userStore')
+const { validateBody } = require('../middleware/validate')
+const {
+  likeTrackSchema,
+  createPlaylistSchema,
+  updatePlaylistSchema,
+  addTrackSchema,
+  updateSettingsSchema,
+  searchHistorySchema,
+  listeningHistorySchema,
+  postLikesSchema,
+  postPlaylistsSchema,
+  putPlaylistSchema,
+  postPlaylistTrackSchema,
+  putSettingsSchema,
+  postSearchHistorySchema,
+  postListeningHistorySchema
+} = require('../schemas/user.schema')
 
 const router = Router()
 
@@ -48,7 +65,7 @@ router.get('/likes', asyncHandler(async (req) => {
   return await likesStore.getAll(userId)
 }))
 
-router.post('/likes', asyncHandler(async (req) => {
+router.post('/likes', validateBody(postLikesSchema), asyncHandler(async (req) => {
   const userId = getUserId(req)
   const providerId = getProviderId(req)
   const track = sanitizeTrack(req.body.track)
@@ -72,14 +89,14 @@ router.get('/playlists', asyncHandler(async (req) => {
   return await playlistsStore.getAll(ownerId)
 }))
 
-router.post('/playlists', asyncHandler(async (req) => {
+router.post('/playlists', validateBody(postPlaylistsSchema), asyncHandler(async (req) => {
   const ownerId = getUserId(req)
   const name = String(req.body.name || '').trim().slice(0, 100)
   if (!name) throw new Error('Name required')
   return await playlistsStore.create(ownerId, name)
 }))
 
-router.put('/playlists/:id', asyncHandler(async (req) => {
+router.put('/playlists/:id', validateBody(putPlaylistSchema), asyncHandler(async (req) => {
   const ownerId = getUserId(req)
   const name = String(req.body.name || '').trim().slice(0, 100)
   if (!name) throw new Error('Name required')
@@ -93,7 +110,7 @@ router.delete('/playlists/:id', asyncHandler(async (req) => {
   return { success: true }
 }))
 
-router.post('/playlists/:id/tracks', asyncHandler(async (req) => {
+router.post('/playlists/:id/tracks', validateBody(postPlaylistTrackSchema), asyncHandler(async (req) => {
   const ownerId = getUserId(req)
   const track = sanitizeTrack(req.body.track)
   await playlistsStore.addTrack(req.params.id, ownerId, track)
@@ -117,7 +134,7 @@ router.get('/settings', asyncHandler(async (req) => {
   return await settingsStore.get(userId)
 }))
 
-router.put('/settings', asyncHandler(async (req) => {
+router.put('/settings', validateBody(putSettingsSchema), asyncHandler(async (req) => {
   const userId = getUserId(req)
   const { theme, accent, customThemeData } = req.body
   return await settingsStore.upsert(userId, { theme, accent, customThemeData })
@@ -131,7 +148,7 @@ router.get('/search-history', asyncHandler(async (req) => {
   return await searchHistoryStore.getRecent(userId, limit)
 }))
 
-router.post('/search-history', asyncHandler(async (req) => {
+router.post('/search-history', validateBody(postSearchHistorySchema), asyncHandler(async (req) => {
   const userId = getUserId(req)
   const query = String(req.body.query || '').trim().slice(0, 200)
   if (!query) throw new Error('Query required')
@@ -152,7 +169,7 @@ router.get('/listening-history', asyncHandler(async (req) => {
   return await listeningHistoryStore.getRecent(userId, limit)
 }))
 
-router.post('/listening-history', asyncHandler(async (req) => {
+router.post('/listening-history', validateBody(postListeningHistorySchema), asyncHandler(async (req) => {
   const userId = getUserId(req)
   const track = sanitizeTrack(req.body.track)
   return await listeningHistoryStore.add(userId, track)
