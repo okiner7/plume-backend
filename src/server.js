@@ -115,8 +115,21 @@ app.use(apiTracker)
 app.use(routes)
 
 app.use((err, req, res, next) => {
+  const status = err.status || 500
   console.error('[ERROR]:', err.message)
-  res.status(err.status || 500).json({ success: false, error: err.message || 'Internal server error' })
+
+  // Send Telegram alert for unexpected server errors (5xx only, not 4xx client errors)
+  if (status >= 500) {
+    const alertMsg = [
+      `❌ *Server Error ${status}*`,
+      `Route: \`${req.method} ${req.originalUrl}\``,
+      `Message: ${err.message || 'Internal server error'}`,
+      err.stack ? `\`\`\`\n${err.stack.slice(0, 600)}\n\`\`\`` : ''
+    ].filter(Boolean).join('\n')
+    telegramBot.sendAdminAlert(alertMsg).catch(() => {})
+  }
+
+  res.status(status).json({ success: false, error: err.message || 'Internal server error' })
 })
 
 if (require.main === module) {
