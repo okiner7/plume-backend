@@ -39,7 +39,7 @@ services:
   mongodb:
     image: mongo:6
     container_name: plume-mongo
-    command: ["mongod", "--quiet", "--setParameter", "logComponentVerbosity={network:{verbosity:-1}}"]
+    command: ["mongod", "--quiet", "--setParameter", "logComponentVerbosity={network:{verbosity:-1}}", "--setParameter", "diagnosticDataCollectionEnabled=false"]
     restart: always
     ports:
       - "127.0.0.1:27017:27017"
