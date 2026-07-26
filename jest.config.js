@@ -15,6 +15,7 @@ module.exports = {
         '^../services/storage/database$': '<rootDir>/tests/__mocks__/database.js',
         '^./database$': '<rootDir>/tests/__mocks__/database.js'
       },
+      setupFilesAfterEnv: ['<rootDir>/tests/unit-teardown.js'],
       transform: {}
     },
     {
@@ -26,7 +27,6 @@ module.exports = {
       ],
       testEnvironment: 'node',
       setupFiles: ['<rootDir>/tests/polyfill.js'],
-      setupFilesAfterFramework: [],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
       moduleNameMapper: {
         '^https-proxy-agent$': '<rootDir>/tests/__mocks__/https-proxy-agent.js'
