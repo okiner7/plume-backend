@@ -1,3 +1,8 @@
+// Polyfill Web Crypto API for Node.js v18 (MongoDB driver requires globalThis.crypto)
+if (!globalThis.crypto) {
+  globalThis.crypto = require('crypto').webcrypto
+}
+
 const db = require('../src/services/storage/database');
 const { redis } = require('../src/middleware/cache');
 
