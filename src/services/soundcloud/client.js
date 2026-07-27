@@ -11,7 +11,8 @@ const scClient = axios.create({
     'Origin': 'https://soundcloud.com',
     'Accept-Encoding': 'gzip, compress, deflate, br',
     'Connection': 'keep-alive'
-  }
+  },
+  timeout: 5000 // Строгий таймаут в 5 секунд, чтобы плохие прокси быстро отсеивались
 })
 
 scClient.interceptors.request.use(config => {

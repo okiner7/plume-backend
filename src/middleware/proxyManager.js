@@ -14,8 +14,8 @@ const axios = require('axios')
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PROXY_FILE = path.join(__dirname, '..', '..', 'proxies.txt')
-const MAX_FAILS   = 5      // после 5 ошибок прокси уходит в cooldown
-const COOLDOWN_MS = 5 * 60 * 1000  // 5 минут cooldown
+const MAX_FAILS   = 2      // Быстро убираем нестабильные прокси
+const COOLDOWN_MS = 2 * 60 * 1000  // 2 минуты cooldown
 
 class ProxyPool {
   constructor() {
