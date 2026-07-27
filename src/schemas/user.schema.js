@@ -19,11 +19,11 @@ const likeTrackSchema = z.object({
 
 const createPlaylistSchema = z.object({
   name: z.string().min(1)
-})
+}).strict()
 
 const updatePlaylistSchema = z.object({
   name: z.string().min(1)
-})
+}).strict()
 
 const addTrackSchema = z.object({
   trackId: z.union([z.string(), z.number()]).optional(),
@@ -36,7 +36,7 @@ const updateSettingsSchema = z.object({
   theme: z.string().optional(),
   accent: z.string().optional(),
   customThemeData: z.record(z.any()).optional()
-})
+}).strict()
 
 const searchHistorySchema = z.object({
   query: z.string().min(1)

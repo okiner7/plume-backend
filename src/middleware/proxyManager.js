@@ -173,7 +173,7 @@ class ProxyPool {
       proxy.isOffline = false
     }
 
-    console.log(`[ProxyPool] Latency update for ${proxy.url.replace(/:[^:@]+@/, ':***@')} [${s}]: ${newLatency}ms (EMA alpha=0.7)`)
+    // console.log(`[ProxyPool] Latency update for ${proxy.url.replace(/:[^:@]+@/, ':***@')} [${s}]: ${newLatency}ms (EMA alpha=0.7)`)
     return proxy
   }
 

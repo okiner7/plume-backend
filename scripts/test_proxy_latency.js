@@ -4,8 +4,8 @@
 
 const http = require('http');
 const crypto = require('crypto');
-const app = require('./src/server');
-const proxyManager = require('./src/middleware/proxyManager');
+const app = require('../src/server');
+const proxyManager = require('../src/middleware/proxyManager');
 
 const APP_SECRET = process.env.APP_SECRET || 'super-secret-lunex-app-key-2026';
 const PORT = process.env.PORT || 5000;
