@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lunex — Музыка без границ</title>
+  <meta name="description" content="Lunex — десктопное приложение для музыки из YouTube Music и SoundCloud. Умный радио, текст песен, плейлисты. Бесплатно." />
+  <meta property="og:title" content="Lunex — Музыка без границ" />
+  <meta property="og:description" content="Десктопный плеер с YouTube Music, SoundCloud, умным радио и текстами песен." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --accent: #ff2d6e;
+      --accent-dark: #b6004c;
+      --accent-deep: #590000;
+      --accent-glow: rgba(255, 45, 110, 0.22);
+      --bg: #0a0008;
+      --bg-card: rgba(255,255,255,0.035);
+      --bg-card-hover: rgba(255,255,255,0.065);
+      --border: rgba(255,255,255,0.06);
+      --border-accent: rgba(255, 45, 110, 0.18);
+      --text: #ffffff;
+      --text-secondary: rgba(255,255,255,0.48);
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Onest', system-ui, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── BACKGROUND ─── */
+    .bg-layer {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 60% -10%, rgba(255,0,77,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 100% 80%, rgba(90,0,0,0.35) 0%, transparent 65%),
+        radial-gradient(ellipse 70% 50% at -5% 30%, rgba(180,0,76,0.08) 0%, transparent 55%);
+    }
+
+    /* ─── NAVBAR ─── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 48px; height: 60px;
+      background: rgba(10, 0, 8, 0.82);
+      backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+    .nav-logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 15px; color: #fff;
+      box-shadow: 0 0 18px var(--accent-glow);
+    }
+    .nav-logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+
+    .nav-center { display: flex; gap: 8px; list-style: none; }
+    .nav-center a {
+      display: flex; align-items: center; gap: 6px;
+      color: rgba(255,255,255,0.45);
+      text-decoration: none; font-size: 14px; font-weight: 500;
+      padding: 6px 12px; border-radius: 8px;
+      transition: color 0.18s, background 0.18s;
+    }
+    .nav-center a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-center a.active { color: var(--text); }
+
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .btn-nav-dl {
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent-dark), var(--accent-deep));
+      color: #fff; padding: 8px 18px; border-radius: 100px;
+      font-size: 14px; font-weight: 600; text-decoration: none;
+      border: 1px solid rgba(255,45,110,0.3);
+      box-shadow: 0 0 24px rgba(255,0,77,0.2);
+      transition: all 0.18s;
+    }
+    .btn-nav-dl:hover { opacity: 0.88; transform: scale(0.97); }
+
+    /* ─── HERO ─── */
+    .hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 40px;
+      padding: 60px 80px 80px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .hero-left { display: flex; flex-direction: column; align-items: flex-start; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,45,110,0.08);
+      border: 1px solid rgba(255,45,110,0.22);
+      border-radius: 100px; padding: 5px 14px;
+      font-size: 12px; font-weight: 600; color: #ff7daa;
+      letter-spacing: 0.02em;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+    .badge-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(0.75);} }
+
+    .hero-title {
+      font-size: clamp(44px, 5.5vw, 80px);
+      font-weight: 900;
+      line-height: 1.02;
+      letter-spacing: -2.5px;
+      margin-bottom: 22px;
+      animation: fadeUp 0.6s 0.08s ease both;
+    }
+
+    .hero-title-accent {
+      background: linear-gradient(180deg, #ff689e 25%, rgba(255,0,77,0.55));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      max-width: 420px;
+      margin-bottom: 40px;
+      animation: fadeUp 0.6s 0.16s ease both;
+    }
+
+    .hero-btns {
+      display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 40px;
+      animation: fadeUp 0.6s 0.24s ease both;
+    }
+
+    .btn-primary {
+      display: flex; align-items: center; gap: 9px;
+      background: radial-gradient(57% 97% at 43% 27%, #fff 0%, #999 100%);
+      color: #000; padding: 14px 26px; border-radius: 100px;
+      font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer;
+      border: none;
+      box-shadow: 0 4px 28px rgba(255,255,255,0.12);
+      transition: transform 0.18s, box-shadow 0.18s;
+    }
+    .btn-primary:hover { transform: scale(0.97); box-shadow: 0 4px 40px rgba(255,255,255,0.18); }
+    .btn-primary:active { transform: scale(0.94); }
+
+    .btn-ghost {
+      display: flex; align-items: center; gap: 9px;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.65);
+      padding: 14px 26px; border-radius: 100px;
+      font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer;
+      transition: all 0.18s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.22); color: #fff; background: rgba(255,255,255,0.05); }
+
+    .hero-chips {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+    .chip { font-size: 12px; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 5px; }
+    .chip-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+
+    /* ─── APP FRAME ─── */
+    .hero-right {
+      position: relative;
+      animation: fadeUp 0.9s 0.35s ease both;
+      perspective: 1200px;
+    }
+
+    .app-frame-wrapper {
+      transform: rotateY(-8deg) rotateX(3deg) rotate(-1deg);
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.16,1,0.3,1);
+      will-change: transform;
+    }
+    .app-frame-wrapper:hover {
+      transform: rotateY(-4deg) rotateX(1deg) rotate(-0.5deg) scale(1.02);
+    }
+
+    .app-frame {
+      background: #111;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,45,110,0.08),
+        0 60px 150px rgba(0,0,0,0.9),
+        0 0 100px rgba(255,0,77,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    .frame-titlebar {
+      display: flex; align-items: center; gap: 7px;
+      padding: 9px 14px; background: #0d0d0d;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .ft-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .ft-r{background:#ff5f57;} .ft-y{background:#ffbd2e;} .ft-g{background:#28c840;}
+
+    /* EMPTY SCREENSHOT AREA */
+    .frame-screenshot {
+      aspect-ratio: 16/10;
+      background:
+        linear-gradient(135deg, rgba(255,45,110,0.04) 0%, rgba(10,0,8,0.9) 50%, rgba(90,0,0,0.06) 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px;
+      border-top: none;
+    }
+
+    .screenshot-placeholder-icon {
+      width: 56px; height: 56px;
+      background: rgba(255,45,110,0.08);
+      border: 1px solid rgba(255,45,110,0.15);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+
+    .screenshot-placeholder-text {
+      font-size: 13px;
+      color: rgba(255,255,255,0.2);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* Glow под рамкой */
+    .frame-glow {
+      position: absolute;
+      bottom: -40px; left: 10%; right: 10%;
+      height: 80px;
+      background: radial-gradient(ellipse, rgba(255,0,77,0.15) 0%, transparent 70%);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+
+    /* Стрелки как у play2go */
+    .hero-arrow {
+      position: absolute;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; color: rgba(255,255,255,0.6);
+      white-space: nowrap;
+    }
+    .hero-arrow.top { top: 60px; right: -40px; }
+    .hero-arrow.bottom { bottom: 100px; left: -60px; }
+    .arrow-line { width: 60px; height: 1px; background: rgba(255,255,255,0.25); }
+
+    /* ─── STATS BAR ─── */
+    .stats-bar {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center; gap: 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.2)),
+                  linear-gradient(180deg, transparent, rgba(0,0,0,0.5));
+      backdrop-filter: blur(12px);
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 28px 48px;
+    }
+
+    .stat-icon { font-size: 22px; opacity: 0.8; }
+
+    .stat-texts {}
+    .stat-val { font-size: 28px; font-weight: 800; color: #fff; }
+    .stat-lbl { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+    .stat-divider {
+      width: 1px; height: 44px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* ─── SECTIONS ─── */
+    .section {
+      position: relative; z-index: 1;
+      padding: 100px 80px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-tag {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      color: var(--accent);
+      margin-bottom: 14px; display: block;
+    }
+
+    .section-title {
+      font-size: clamp(30px, 4vw, 48px);
+      font-weight: 800; line-height: 1.1;
+      margin-bottom: 14px;
+    }
+
+    .title-hl {
+      position: relative; display: inline-block;
+    }
+    .title-hl::after {
+      content: '';
+      position: absolute; left: 0; bottom: 4px;
+      width: 100%; height: 7px;
+      background: linear-gradient(90deg, var(--accent-dark), var(--accent-deep));
+      z-index: -1; border-radius: 3px;
+    }
+
+    .section-desc {
+      font-size: 17px; color: var(--text-secondary);
+      max-width: 440px; line-height: 1.65;
+      margin-bottom: 56px;
+    }
+
+    /* ─── FEATURE CARDS ─── */
+    .feats-grid {
+      display: grid;
+      grid-template-columns: 4fr 3fr 2fr;
+      gap: 12px;
+    }
+
+    .feat-row-2 {
+      display: grid;
+      grid-template-columns: 3fr 4fr 3fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .feat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px;
+      position: relative; overflow: hidden;
+      transition: background 0.22s, transform 0.22s, border-color 0.22s;
+    }
+    .feat-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255,255,255,0.1);
+      transform: translateY(-2px);
+    }
+
+    .feat-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+    .fc-glow-red::before { background: radial-gradient(circle at 25% 25%, rgba(255,0,77,0.07) 0%, transparent 60%); }
+    .fc-glow-soft::before { background: radial-gradient(circle at 25% 25%, rgba(255,100,160,0.05) 0%, transparent 55%); }
+
+    .feat-icon {
+      width: 42px; height: 42px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px; margin-bottom: 16px;
+    }
+    .fi-red { background: rgba(255,0,77,0.1); }
+    .fi-pink { background: rgba(255,100,160,0.1); }
+    .fi-white { background: rgba(255,255,255,0.06); }
+
+    .feat-title { font-size: 18px; font-weight: 700; margin-bottom: 9px; }
+    .feat-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+    .feat-link {
+      display: flex; align-items: center; gap: 6px; margin-top: 16px;
+      font-size: 13px; color: rgba(255,255,255,0.5);
+      text-decoration: none; cursor: default;
+      transition: color 0.18s;
+    }
+    .feat-link:hover { color: rgba(255,255,255,0.8); }
+
+    /* ─── CTA ─── */
+    .cta-section {
+      position: relative; z-index: 1;
+      padding: 100px 24px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .cta-blob {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px; height: 400px;
+      background: radial-gradient(ellipse, rgba(255,0,77,0.1) 0%, transparent 68%);
+      filter: blur(60px); pointer-events: none;
+    }
+
+    .cta-title {
+      font-size: clamp(36px, 5vw, 64px);
+      font-weight: 900; line-height: 1.08;
+      margin-bottom: 18px;
+      position: relative;
+    }
+
+    .cta-desc {
+      font-size: 17px; color: var(--text-secondary);
+      max-width: 440px; margin: 0 auto 48px;
+      line-height: 1.65; position: relative;
+    }
+
+    .cta-btns {
+      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+      position: relative;
+    }
+
+    .dl-notes {
+      display: flex; gap: 10px; align-items: center; justify-content: center;
+      flex-wrap: wrap; margin-top: 24px; position: relative;
+    }
+    .dl-note { font-size: 12px; color: rgba(255,255,255,0.25); }
+    .dl-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+
+    /* ─── FOOTER ─── */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.35);
+    }
+
+    .footer-hairline {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,45,110,0.15) 50%, transparent);
+    }
+
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 56px 80px;
+      display: flex; align-items: flex-start;
+      justify-content: space-between; flex-wrap: wrap; gap: 48px;
+    }
+
+    .footer-brand .fb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .footer-logo { width: 26px; height: 26px; background: linear-gradient(135deg,var(--accent-dark),var(--accent-deep)); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fff; }
+    .footer-name {
+      font-size: 16px; font-weight: 700;
+      background: linear-gradient(90deg, #ff689e, #ff004d);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .footer-tagline { font-size: 13px; color: var(--text-secondary); max-width: 240px; line-height: 1.6; margin-bottom: 22px; }
+    .footer-social { display: flex; gap: 8px; }
+    .social-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; text-decoration: none;
+      transition: all 0.18s;
+    }
+    .social-btn:hover {
+      background: rgba(255,45,110,0.1);
+      border-color: rgba(255,45,110,0.25);
+      transform: scale(0.94);
+    }
+
+    .footer-cols { display: flex; gap: 56px; flex-wrap: wrap; }
+    .footer-col h4 {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.28); margin-bottom: 18px;
+    }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+    .footer-col a {
+      color: rgba(255,255,255,0.48);
+      text-decoration: none; font-size: 14px;
+      display: flex; align-items: center; gap: 8px;
+      transition: color 0.18s;
+    }
+    .footer-col a:hover { color: var(--text); }
+    .footer-col a .arr { opacity: 0; transform: translateX(-4px); transition: all 0.18s; font-size: 11px; color: var(--accent); }
+    .footer-col a:hover .arr { opacity: 1; transform: translateX(0); }
+
+    .footer-bottom {
+      max-width: 1200px; margin: 0 auto;
+      padding: 20px 80px 28px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .footer-copy { font-size: 12px; color: rgba(255,255,255,0.28); }
+
+    /* ─── ANIMATIONS ─── */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(22px);} to{opacity:1;transform:translateY(0);} }
+    .sr { opacity:0; transform:translateY(26px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .sr.visible { opacity:1; transform:translateY(0); }
+
+    /* ─── RESPONSIVE ─── */
+    @media(max-width:1024px) {
+      .hero { grid-template-columns: 1fr; padding: 90px 40px 60px; text-align: center; }
+      .hero-left { align-items: center; }
+      .hero-sub { max-width: 480px; }
+      .hero-right { display: none; }
+      .feats-grid, .feat-row-2 { grid-template-columns: 1fr 1fr; }
+      nav { padding: 0 24px; }
+      .nav-center { display: none; }
+      .section { padding: 70px 40px; }
+      .footer-inner, .footer-bottom { padding-left: 40px; padding-right: 40px; }
+    }
+    @media(max-width:640px) {
+      .feats-grid, .feat-row-2 { grid-template-columns: 1fr; }
+      .stats-bar { flex-direction: column; gap: 0; }
+      .stat-divider { width: 60%; height: 1px; }
+      .stat-item { padding: 20px 24px; }
+      .footer-cols { gap: 32px; }
+      .section { padding: 60px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-layer"></div>
+
+
+
+  <!-- HERO -->
+  <div style="position:relative;z-index:1;">
+    <section class="hero">
+      <!-- LEFT -->
+      <div class="hero-left">
+        <div class="hero-badge"><div class="badge-dot"></div> Версия 2.0 · Бесплатно</div>
+
+        <h1 class="hero-title">
+          Современный<br />
+          плеер для<br />
+          <span class="hero-title-accent">твоей музыки</span>
+        </h1>
+
+        <p class="hero-sub">
+          Слушай треки из YouTube Music и SoundCloud в одном красивом приложении. Умный радио, текст песен, плейлисты.
+        </p>
+
+        <div class="hero-btns">
+          <a href="#download" class="btn-primary" id="hero-btn">
+            → Скачать приложение
+          </a>
+          <a href="https://github.com" target="_blank" class="btn-ghost">
+            ⭐ GitHub
+          </a>
+        </div>
+
+
+      </div>
+
+      <!-- RIGHT — APP FRAME -->
+      <div class="hero-right">
+        <!-- Стрелка сверху -->
+        <div class="hero-arrow top">
+          <span>лучший<br>интерфейс</span>
+          <div class="arrow-line"></div>
+          <span style="font-size:20px;">→</span>
+        </div>
+
+        <div class="app-frame-wrapper" id="appFrame">
+          <div class="app-frame">
+            <div class="frame-titlebar">
+              <div class="ft-dot ft-r"></div>
+              <div class="ft-dot ft-y"></div>
+              <div class="ft-dot ft-g"></div>
+            </div>
+            <!-- ПУСТАЯ ОБЛАСТЬ ДЛЯ СКРИНШОТА -->
+            <div class="frame-screenshot">
+              <div class="screenshot-placeholder-icon">🎵</div>
+              <div class="screenshot-placeholder-text">
+                Вставьте скриншот<br />приложения сюда
+              </div>
+            </div>
+          </div>
+          <div class="frame-glow"></div>
+        </div>
+
+        <!-- Стрелка снизу -->
+        <div class="hero-arrow bottom">
+          <span style="font-size:20px;">←</span>
+          <div class="arrow-line"></div>
+          <span>умный<br>радио-режим</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-item sr">
+      <span class="stat-icon">🎵</span>
+      <div class="stat-texts">
+        <div class="stat-val">2+</div>
+        <div class="stat-lbl">источника музыки</div>
+      </div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item sr" style="transition-delay:0.06s">
+      <span class="stat-icon">∞</span>
+      <div class="stat-texts">
+        <div class="stat-val">∞</div>
+        <div class="stat-lbl">треков доступно</div>
+      </div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item sr" style="transition-delay:0.12s">
+      <span class="stat-icon">🛒</span>
+      <div class="stat-texts">
+        <div class="stat-val">0₽</div>
+        <div class="stat-lbl">стоит приложение</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <span class="section-tag sr">Возможности</span>
+    <h2 class="section-title sr">Наши <span class="title-hl">преимущества</span></h2>
+    <p class="section-desc sr">Главные фичи, за которые пользователи выбирают Lunex.</p>
+
+    <div class="feats-grid">
+      <div class="feat-card fc-glow-red sr">
+        <div class="feat-icon fi-red">🎵</div>
+        <h3 class="feat-title">Несколько источников</h3>
+        <p class="feat-desc">YouTube Music и SoundCloud в едином интерфейсе. Скоро добавятся Spotify и Яндекс Музыка.</p>
+        <a href="#" class="feat-link">→ подробнее</a>
+      </div>
+      <div class="feat-card fc-glow-soft sr" style="transition-delay:0.08s">
+        <div class="feat-icon fi-pink">📻</div>
+        <h3 class="feat-title">Моя Волна</h3>
+        <p class="feat-desc">Умный радио-режим с бесконечной лентой треков под твой вкус.</p>
+        <a href="#" class="feat-link">→ подробнее</a>
+      </div>
+      <div class="feat-card sr" style="transition-delay:0.16s">
+        <div class="feat-icon fi-white">🎤</div>
+        <h3 class="feat-title">Текст песен</h3>
+        <p class="feat-desc">Синхронизированные слова в полноэкранном плеере.</p>
+        <a href="#" class="feat-link">→ подробнее</a>
+      </div>
+    </div>
+
+    <div class="feat-row-2">
+      <div class="feat-card sr" style="transition-delay:0.04s">
+        <div class="feat-icon fi-white">❤</div>
+        <h3 class="feat-title">Библиотека</h3>
+        <p class="feat-desc">Лайкай треки, создавай плейлисты, смотри историю. Всё в аккаунте.</p>
+        <a href="#" class="feat-link">→ подробнее</a>
+      </div>
+      <div class="feat-card fc-glow-red sr" style="transition-delay:0.12s">
+        <div class="feat-icon fi-red">🎨</div>
+        <h3 class="feat-title">Темы оформления</h3>
+        <p class="feat-desc">Тёмная и светлая темы, 5 акцентных цветов, кастомные темы. Публикуй свои — другие смогут скачать.</p>
+        <a href="#" class="feat-link">→ подробнее</a>
+      </div>
+      <div class="feat-card fc-glow-soft sr" style="transition-delay:0.2s">
+        <div class="feat-icon fi-pink">⚡</div>
+        <h3 class="feat-title">Discord Rich Presence</h3>
+        <p class="feat-desc">Статус в Discord автоматически показывает текущий трек.</p>
+        <a href="#" class="feat-link">→ подробнее</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section" id="download">
+    <div class="cta-blob"></div>
+    <h2 class="cta-title sr">
+      Присоединяйтесь<br />к нам уже сейчас!
+    </h2>
+    <p class="cta-desc sr" style="transition-delay:0.08s">
+      Скачайте Lunex бесплатно и слушайте любимую музыку в красивом интерфейсе без рекламы.
+    </p>
+    <div class="cta-btns sr" style="transition-delay:0.16s;">
+      <a href="#" class="btn-primary" id="cta-btn">→ Скачать для Windows</a>
+      <a href="https://github.com" target="_blank" class="btn-ghost">⭐ Открыть на GitHub</a>
+    </div>
+    <div class="dl-notes sr" style="transition-delay:0.22s;">
+      <span class="dl-note">Windows 10 / 11 · x64</span>
+      <span class="dl-sep"></span>
+      <span class="dl-note">~120 МБ</span>
+      <span class="dl-sep"></span>
+      <span class="dl-note">Нужен аккаунт Lunex</span>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-hairline"></div>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="fb-row">
+          <div class="footer-logo">L</div>
+          <span class="footer-name">Lunex</span>
+        </div>
+        <p class="footer-tagline">Современный десктопный плеер для YouTube Music, SoundCloud и других источников.</p>
+        <div class="footer-social">
+          <a class="social-btn" href="https://t.me/Lunexlabs_bot" target="_blank" title="Telegram">✈</a>
+          <a class="social-btn" href="https://github.com" target="_blank" title="GitHub">⚙</a>
+        </div>
+      </div>
+
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Сообщество</h4>
+          <ul>
+            <li><a href="https://t.me/Lunexlabs_bot" target="_blank">✈ Telegram бот<span class="arr">→</span></a></li>
+            <li><a href="https://github.com" target="_blank">⭐ GitHub<span class="arr">→</span></a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Навигация</h4>
+          <ul>
+            <li><a href="#download">⬇ Скачать<span class="arr">→</span></a></li>
+            <li><a href="#features">✨ Возможности<span class="arr">→</span></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p class="footer-copy">© 2026 Lunex. Все права защищены.</p>
+      <p class="footer-copy">Сделано с ❤ для любителей музыки</p>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll reveal
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('visible')
+      })
+    }, { threshold: 0.1 })
+    document.querySelectorAll('.sr').forEach(el => obs.observe(el))
+
+    // Parallax on mouse move (hero frame)
+    const frame = document.getElementById('appFrame')
+    if (frame) {
+      document.addEventListener('mousemove', e => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 6
+        const y = (e.clientY / window.innerHeight - 0.5) * 4
+        frame.style.transform = `rotateY(${-8 + x}deg) rotateX(${3 - y}deg) rotate(-1deg)`
+      })
+    }
+
+    // Download buttons
+    const onDl = e => { e.preventDefault(); alert('Ссылка появится после публичного релиза!') }
+    document.getElementById('hero-btn').addEventListener('click', onDl)
+    document.getElementById('cta-btn').addEventListener('click', onDl)
+  </script>
+</body>
+</html>
