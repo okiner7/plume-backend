@@ -8,27 +8,27 @@ const trackSchema = z.object({
   duration: z.number().optional(),
   artwork: z.string().optional(),
   url: z.string().optional()
-}).strict()
+})
 
 const likeTrackSchema = z.object({
   trackId: z.union([z.string(), z.number()]).optional(),
   track: trackSchema.optional()
-}).strict().refine(data => data.trackId !== undefined || data.track !== undefined, {
+}).refine(data => data.trackId !== undefined || data.track !== undefined, {
   message: 'trackId or track required'
 })
 
 const createPlaylistSchema = z.object({
   name: z.string().min(1)
-}).strict()
+})
 
 const updatePlaylistSchema = z.object({
   name: z.string().min(1)
-}).strict()
+})
 
 const addTrackSchema = z.object({
   trackId: z.union([z.string(), z.number()]).optional(),
   track: trackSchema.optional()
-}).strict().refine(data => data.trackId !== undefined || data.track !== undefined, {
+}).refine(data => data.trackId !== undefined || data.track !== undefined, {
   message: 'trackId or track required'
 })
 
@@ -36,18 +36,18 @@ const updateSettingsSchema = z.object({
   theme: z.string().optional(),
   accent: z.string().optional(),
   customThemeData: z.record(z.any()).optional()
-}).strict()
+})
 
 const searchHistorySchema = z.object({
   query: z.string().min(1)
-}).strict()
+})
 
 const listeningHistorySchema = z.object({
   trackId: z.union([z.string(), z.number()]).optional(),
   duration: z.number().optional(),
   playedAt: z.union([z.string(), z.number()]).optional(),
   track: trackSchema.optional()
-}).strict().refine(data => data.trackId !== undefined || data.track !== undefined || data.duration !== undefined, {
+}).refine(data => data.trackId !== undefined || data.track !== undefined || data.duration !== undefined, {
   message: 'Track data required'
 })
 
