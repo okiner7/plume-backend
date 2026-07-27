@@ -36,16 +36,21 @@ router.get('/stream', asyncHandler(async (req) => {
       
       const unencrypted = trackData?.media?.transcodings?.filter(t => t.format.protocol === 'progressive' || t.format.protocol === 'hls') || []
       
-      let foundUrl = null
-      for (const tc of unencrypted) {
+      const tcPromises = unencrypted.map(tc => {
+        // Делаем 1 попытку вместо 3, так как мы запускаем их параллельно
+        return sc.request(tc.url, authParam ? { track_authorization: authParam } : {}, 1, originalAgent)
+          .then(tcRes => {
+             if (tcRes && tcRes.url) return tcRes.url;
+             throw new Error('No URL returned');
+          });
+      });
+
+      let foundUrl = null;
+      if (tcPromises.length > 0) {
         try {
-           const tcRes = await sc.request(tc.url, authParam ? { track_authorization: authParam } : {}, 3, originalAgent)
-           if (tcRes && tcRes.url) {
-             foundUrl = tcRes.url
-             break
-           }
+          foundUrl = await Promise.any(tcPromises);
         } catch (e) {
-           console.warn(`[SoundCloud] Failed to fetch transcoding URL: ${tc.url}`, e.message)
+          console.warn(`[SoundCloud] All transcode requests failed for track ${id}`);
         }
       }
 
