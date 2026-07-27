@@ -256,11 +256,14 @@ async function fetchProxies() {
       
       const actionHtml = `<button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="removeProxy('${p._url || p.url}')">Remove</button>`
       const displayIp = (p.address || p.url || 'Unknown').replace(/.*@/, '')
+      const scLat = (p.latencyMap && p.latencyMap.soundcloud !== null && p.latencyMap.soundcloud !== Infinity) ? p.latencyMap.soundcloud + 'ms' : '∞'
+      const ytLat = (p.latencyMap && p.latencyMap.youtube !== null && p.latencyMap.youtube !== Infinity) ? p.latencyMap.youtube + 'ms' : '∞'
 
       tbody.innerHTML += `
         <tr>
           <td style="font-family: monospace">${displayIp} <span class="badge gray" style="margin-left: 8px">${p.country || 'XX'}</span></td>
           <td>${statusHtml}</td>
+          <td style="font-family: monospace; font-size: 12px; color: var(--text-muted);">${scLat} / ${ytLat}</td>
           <td>${p.fails || p.failCount || 0}</td>
           <td>${actionHtml}</td>
         </tr>
