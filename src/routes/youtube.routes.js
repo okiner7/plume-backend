@@ -11,6 +11,19 @@ router.get('/search', cache(7200), asyncHandler(async (req) => {
   return await yt.search(q)
 }))
 
+router.get('/proxy', asyncHandler(async (req) => {
+  const pm = require('../middleware/proxyManager')
+  // Request a fast proxy specifically targeted for youtube
+  const proxyObj = pm.getCountryAwareProxyAgent('youtube')
+  if (proxyObj && proxyObj.agent && proxyObj.agent.proxy) {
+    const p = proxyObj.agent.proxy
+    const auth = p.auth ? `${p.auth}@` : ''
+    const url = `${p.protocol}//${auth}${p.host}:${p.port}`
+    return { success: true, proxy: url }
+  }
+  return { success: false, proxy: null }
+}))
+
 router.get('/search-artists', cache(7200), asyncHandler(async (req) => {
   const { q } = req.query
   if (!q) throw new Error('Query required')

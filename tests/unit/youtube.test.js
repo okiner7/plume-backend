@@ -1,4 +1,6 @@
 const { normaliseTrack, shuffleBiased } = require('../../src/services/youtube/search');
+const { ytmusic, init, requestInterceptor, responseSuccessInterceptor, responseErrorInterceptor } = require('../../src/services/youtube/client');
+const proxyManager = require('../../src/middleware/proxyManager');
 
 describe('YouTube Search Utilities', () => {
   it('should normalise a track object correctly', () => {
@@ -39,5 +41,40 @@ describe('YouTube Search Utilities', () => {
     expect(shuffled.length).toBe(arr.length);
     // Elements should be the same, just order changed
     expect(shuffled).toEqual(expect.arrayContaining(arr));
+  });
+});
+
+describe('YouTube Client Proxy Integration', () => {
+  let mockAgent;
+
+  beforeEach(() => {
+    mockAgent = { host: '127.0.0.1', port: 8080 };
+    jest.spyOn(proxyManager, 'getCountryAwareProxyAgent').mockReturnValue({ agent: mockAgent, country: 'US' });
+    jest.spyOn(proxyManager, 'getRandomProxyAgent').mockReturnValue(mockAgent);
+    jest.spyOn(proxyManager, 'markProxySuccess').mockImplementation(() => {});
+    jest.spyOn(proxyManager, 'markProxyFailed').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should attach proxy agent on request and report proxy success/fail on response', async () => {
+    // 1. Test request interceptor attaches proxy agent
+    const dummyConfig = {};
+    const updatedConfig = requestInterceptor(dummyConfig);
+    expect(updatedConfig.httpsAgent).toBe(mockAgent);
+    expect(updatedConfig.proxy).toBe(false);
+    expect(updatedConfig._proxyAgent).toBe(mockAgent);
+
+    // 2. Test response success interceptor calls markProxySuccess
+    const dummyResponse = { config: { _proxyAgent: mockAgent } };
+    responseSuccessInterceptor(dummyResponse);
+    expect(proxyManager.markProxySuccess).toHaveBeenCalledWith(mockAgent);
+
+    // 3. Test response error interceptor calls markProxyFailed
+    const dummyError = { response: { status: 403 }, config: { _proxyAgent: mockAgent } };
+    await expect(responseErrorInterceptor(dummyError)).rejects.toEqual(dummyError);
+    expect(proxyManager.markProxyFailed).toHaveBeenCalledWith(mockAgent);
   });
 });
