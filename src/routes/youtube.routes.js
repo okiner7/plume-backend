@@ -25,12 +25,7 @@ router.get('/stream', asyncHandler(async (req, res) => {
 
   const pm = require('../middleware/proxyManager')
   const proxyObj = pm.getCountryAwareProxyAgent('youtube')
-  let proxyUrl = null
-  if (proxyObj && proxyObj.agent && proxyObj.agent.proxy) {
-    const p = proxyObj.agent.proxy
-    const auth = p.auth ? `${p.auth}@` : ''
-    proxyUrl = `${p.protocol}//${auth}${p.host}:${p.port}`
-  }
+  let proxyUrl = proxyObj ? proxyObj.url : null
 
   let fetchFn = fetch
   if (proxyUrl) {
@@ -99,11 +94,8 @@ router.get('/proxy', asyncHandler(async (req) => {
   const pm = require('../middleware/proxyManager')
   // Request a fast proxy specifically targeted for youtube
   const proxyObj = pm.getCountryAwareProxyAgent('youtube')
-  if (proxyObj && proxyObj.agent && proxyObj.agent.proxy) {
-    const p = proxyObj.agent.proxy
-    const auth = p.auth ? `${p.auth}@` : ''
-    const url = `${p.protocol}//${auth}${p.host}:${p.port}`
-    return { success: true, proxy: url }
+  if (proxyObj && proxyObj.url) {
+    return { success: true, proxy: proxyObj.url }
   }
   return { success: false, proxy: null }
 }))

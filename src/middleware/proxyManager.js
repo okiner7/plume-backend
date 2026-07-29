@@ -353,7 +353,7 @@ class ProxyPool {
       const selectedLat = getLat(selected)
       console.log(`[ProxyPool] Selected fast proxy ${selected.url.replace(/:[^:@]+@/, ':***@')} (${selected.country || 'unknown'}) for ${service} (latency: ${selectedLat === Infinity ? 'inf' : selectedLat + 'ms'})`)
 
-      return { agent: selected.agent, country: selected.country }
+      return { agent: selected.agent, country: selected.country, url: selected.url }
     }
 
     // Fallback if all proxies are currently on cooldown
@@ -364,7 +364,7 @@ class ProxyPool {
       .sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0]
       || [...this.proxies].filter(p => !p.isOffline).sort((a, b) => a.cooldownUntil - b.cooldownUntil)[0]
 
-    return { agent: best?.agent || null, country: best?.country || null }
+    return { agent: best?.agent || null, country: best?.country || null, url: best?.url || null }
   }
 
   // Вызвать когда прокси вернул ошибку 403/429/timeout
