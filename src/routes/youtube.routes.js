@@ -24,63 +24,77 @@ router.get('/stream', asyncHandler(async (req, res) => {
   }
 
   const pm = require('../middleware/proxyManager')
-  const proxyObj = pm.getCountryAwareProxyAgent('youtube')
-  let proxyUrl = proxyObj ? proxyObj.url : null
 
-  let fetchFn = fetch
-  if (proxyUrl) {
-    const dispatcher = new ProxyAgent(proxyUrl)
-    fetchFn = async (input, init = {}) => {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const proxyObj = pm.getCountryAwareProxyAgent('youtube')
+    const proxyUrl = proxyObj ? proxyObj.url : null
+    const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined
+
+    let fetchFn = async (input, init = {}) => {
       return fetch(input, { ...init, dispatcher })
     }
-  }
 
-  const youtube = await Innertube.create({
-    cache: new UniversalCache(false),
-    fetch: fetchFn
-  })
+    try {
+      const youtube = await Innertube.create({
+        cache: new UniversalCache(false),
+        fetch: fetchFn
+      })
 
-  const info = await youtube.getBasicInfo(id)
-  const format = info.chooseFormat({ type: 'audio', quality: 'best' })
+      const info = await youtube.getBasicInfo(id)
+      const format = info.chooseFormat({ type: 'audio', quality: 'best' })
 
-  if (!format) {
-    throw new Error('No audio format found')
-  }
+      if (!format) {
+        throw new Error('No audio format found')
+      }
 
-  let streamUrl;
-  try {
-    const decipherRes = format.decipher(youtube.session.player);
-    if (decipherRes instanceof Promise) await decipherRes;
-    streamUrl = format.url;
-  } catch (e) {
-    streamUrl = format.url;
-  }
+      let streamUrl;
+      try {
+        const decipherRes = format.decipher(youtube.session.player);
+        if (decipherRes instanceof Promise) await decipherRes;
+        streamUrl = format.url;
+      } catch (e) {
+        streamUrl = format.url;
+      }
 
-  if (!streamUrl) throw new Error('No stream URL')
+      if (!streamUrl) throw new Error('No stream URL')
 
-  const streamRes = await fetch(streamUrl, {
-    dispatcher: proxyUrl ? new ProxyAgent(proxyUrl) : undefined,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      const streamRes = await fetch(streamUrl, {
+        dispatcher,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      })
+      
+      if (!streamRes.ok) {
+        if (streamRes.status === 403) throw new Error('403 Forbidden from Googlevideo')
+        throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
+      }
+
+      if (proxyUrl) pm.markProxySuccess(proxyUrl)
+
+      res.setHeader('Content-Type', format.mime_type || 'audio/mp4')
+      res.setHeader('Accept-Ranges', 'bytes')
+      if (streamRes.headers.get('content-length')) {
+        res.setHeader('Content-Length', streamRes.headers.get('content-length'))
+      }
+      
+      if (streamRes.body) {
+        const nodeStream = Readable.fromWeb(streamRes.body)
+        nodeStream.pipe(res)
+        return // End the route successfully
+      } else {
+        throw new Error('Stream body is empty')
+      }
+
+    } catch (err) {
+      if (proxyUrl) pm.markProxyFailed(proxyUrl)
+      console.warn(`[YouTube] Stream attempt ${attempt} failed with proxy ${proxyUrl}:`, err.message)
+      lastError = err
     }
-  })
-  
-  if (!streamRes.ok) {
-    throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
   }
 
-  res.setHeader('Content-Type', format.mime_type || 'audio/mp4')
-  res.setHeader('Accept-Ranges', 'bytes')
-  if (streamRes.headers.get('content-length')) {
-    res.setHeader('Content-Length', streamRes.headers.get('content-length'))
-  }
-  
-  if (streamRes.body) {
-    const nodeStream = Readable.fromWeb(streamRes.body)
-    nodeStream.pipe(res)
-  } else {
-    throw new Error('Stream body is empty')
-  }
+  throw lastError || new Error('All proxy attempts failed')
 }))
 
 router.get('/search', cache(7200), asyncHandler(async (req) => {
