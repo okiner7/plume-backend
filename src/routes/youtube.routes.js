@@ -29,10 +29,13 @@ router.get('/stream', asyncHandler(async (req, res) => {
   for (let attempt = 1; attempt <= 3; attempt++) {
     const proxyObj = pm.getCountryAwareProxyAgent('youtube')
     const proxyUrl = proxyObj ? proxyObj.url : null
-    const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined
+    // Proxy is used ONLY for YouTube API calls (to bypass geo-restrictions).
+    // The actual CDN stream (googlevideo.com) is fetched directly from the server IP —
+    // proxies often block or throttle HTTPS streaming traffic.
+    const apiDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined
 
-    let fetchFn = async (input, init = {}) => {
-      return fetch(input, { ...init, dispatcher })
+    const fetchFn = async (input, init = {}) => {
+      return fetch(input, { ...init, dispatcher: apiDispatcher })
     }
 
     try {
@@ -59,8 +62,8 @@ router.get('/stream', asyncHandler(async (req, res) => {
 
       if (!streamUrl) throw new Error('No stream URL')
 
+      // Fetch CDN stream directly (no proxy) — googlevideo.com is accessible from the server
       const streamRes = await fetch(streamUrl, {
-        dispatcher,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
@@ -82,20 +85,21 @@ router.get('/stream', asyncHandler(async (req, res) => {
       if (streamRes.body) {
         const nodeStream = Readable.fromWeb(streamRes.body)
         nodeStream.pipe(res)
-        return // End the route successfully
+        return // success
       } else {
         throw new Error('Stream body is empty')
       }
 
     } catch (err) {
       if (proxyUrl) pm.markProxyFailed(proxyUrl)
-      console.warn(`[YouTube] Stream attempt ${attempt} failed with proxy ${proxyUrl}:`, err.message)
+      console.warn(`[YouTube] Stream attempt ${attempt} failed (proxy: ${proxyUrl || 'none'}):`, err.message)
       lastError = err
     }
   }
 
-  throw lastError || new Error('All proxy attempts failed')
+  throw lastError || new Error('All attempts failed')
 }))
+
 
 router.get('/search', cache(7200), asyncHandler(async (req) => {
   const { q } = req.query
