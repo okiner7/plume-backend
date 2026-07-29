@@ -4,7 +4,7 @@ const yt = require('../services/youtube')
 const { cacheMiddleware: cache } = require('../middleware/cache')
 const crypto = require('crypto')
 const { Innertube, UniversalCache } = require('youtubei.js')
-const { ProxyAgent, fetch: undiciFetch } = require('undici')
+const { ProxyAgent } = require('undici')
 const { Readable } = require('stream')
 
 const APP_SECRET = process.env.LUNEX_APP_SECRET || 'super-secret-lunex-app-key-2026'
@@ -31,8 +31,7 @@ router.get('/stream', asyncHandler(async (req, res) => {
   if (proxyUrl) {
     const dispatcher = new ProxyAgent(proxyUrl)
     fetchFn = async (input, init = {}) => {
-      let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      return undiciFetch(url, { ...init, dispatcher })
+      return fetch(input, { ...init, dispatcher })
     }
   }
 
@@ -59,7 +58,7 @@ router.get('/stream', asyncHandler(async (req, res) => {
 
   if (!streamUrl) throw new Error('No stream URL')
 
-  const streamRes = await undiciFetch(streamUrl, {
+  const streamRes = await fetch(streamUrl, {
     dispatcher: proxyUrl ? new ProxyAgent(proxyUrl) : undefined,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
