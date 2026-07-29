@@ -2,8 +2,92 @@ const { Router } = require('express')
 const asyncHandler = require('../middleware/asyncHandler')
 const yt = require('../services/youtube')
 const { cacheMiddleware: cache } = require('../middleware/cache')
+const crypto = require('crypto')
+const { Innertube, UniversalCache } = require('youtubei.js')
+const { ProxyAgent, fetch: undiciFetch } = require('undici')
+const { Readable } = require('stream')
+
+const APP_SECRET = process.env.LUNEX_APP_SECRET || 'super-secret-lunex-app-key-2026'
 
 const router = Router()
+
+router.get('/stream', asyncHandler(async (req, res) => {
+  const { id, t, sig } = req.query
+  if (!id) throw new Error('Video ID required')
+  if (!t || !sig) return res.status(403).json({ error: 'Auth required' })
+
+  const expectedSig = crypto.createHmac('sha256', APP_SECRET)
+                            .update('/api/yt/stream' + t)
+                            .digest('hex')
+  if (sig !== expectedSig) {
+    return res.status(403).json({ error: 'Invalid signature' })
+  }
+
+  const pm = require('../middleware/proxyManager')
+  const proxyObj = pm.getCountryAwareProxyAgent('youtube')
+  let proxyUrl = null
+  if (proxyObj && proxyObj.agent && proxyObj.agent.proxy) {
+    const p = proxyObj.agent.proxy
+    const auth = p.auth ? `${p.auth}@` : ''
+    proxyUrl = `${p.protocol}//${auth}${p.host}:${p.port}`
+  }
+
+  let fetchFn = fetch
+  if (proxyUrl) {
+    const dispatcher = new ProxyAgent(proxyUrl)
+    fetchFn = async (input, init = {}) => {
+      let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      return undiciFetch(url, { ...init, dispatcher })
+    }
+  }
+
+  const youtube = await Innertube.create({
+    cache: new UniversalCache(false),
+    fetch: fetchFn
+  })
+
+  const info = await youtube.getBasicInfo(id)
+  const format = info.chooseFormat({ type: 'audio', quality: 'best' })
+
+  if (!format) {
+    throw new Error('No audio format found')
+  }
+
+  let streamUrl;
+  try {
+    const decipherRes = format.decipher(youtube.session.player);
+    if (decipherRes instanceof Promise) await decipherRes;
+    streamUrl = format.url;
+  } catch (e) {
+    streamUrl = format.url;
+  }
+
+  if (!streamUrl) throw new Error('No stream URL')
+
+  const streamRes = await undiciFetch(streamUrl, {
+    dispatcher: proxyUrl ? new ProxyAgent(proxyUrl) : undefined,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+  })
+  
+  if (!streamRes.ok) {
+    throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
+  }
+
+  res.setHeader('Content-Type', format.mime_type || 'audio/mp4')
+  res.setHeader('Accept-Ranges', 'bytes')
+  if (streamRes.headers.get('content-length')) {
+    res.setHeader('Content-Length', streamRes.headers.get('content-length'))
+  }
+  
+  if (streamRes.body) {
+    const nodeStream = Readable.fromWeb(streamRes.body)
+    nodeStream.pipe(res)
+  } else {
+    throw new Error('Stream body is empty')
+  }
+}))
 
 router.get('/search', cache(7200), asyncHandler(async (req) => {
   const { q } = req.query
