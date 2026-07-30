@@ -14,15 +14,9 @@ const proxyStates = {}
 // Общий флаг — хотя бы один прокси живой
 let overallHealthy = true
 
-async function checkSingleProxy(proxy) {
-  const { HttpsProxyAgent } = require('https-proxy-agent')
-  let agent
-  try {
-    agent = new HttpsProxyAgent(proxy._url) // используем внутренний url из stats
-  } catch {
-    return { ok: false, error: 'Invalid proxy URL' }
-  }
-
+async function checkSingleProxy(poolProxy) {
+  const agent = poolProxy.agent;
+  
   try {
     const res = await axios.get(CHECK_URL, {
       httpsAgent: agent,
@@ -54,7 +48,7 @@ async function checkAll() {
 
   // Проверяем каждый прокси параллельно
   const results = await Promise.allSettled(
-    stats.proxies.map(p => checkSingleProxy(p))
+    _pool.proxies.map(p => checkSingleProxy(p))
   )
 
   let newFails = 0
@@ -62,6 +56,7 @@ async function checkAll() {
 
   results.forEach((result, i) => {
     const proxy = stats.proxies[i]
+    const poolProxy = _pool.proxies[i]
     const wasInCooldown = proxy.status.startsWith('cooldown')
 
     if (result.status === 'rejected' || !result.value?.ok) {
@@ -69,19 +64,19 @@ async function checkAll() {
       const type = result.value?.type
 
       if (type === 'offline') {
-        if (proxy._url) _pool.markOffline(proxy._url)
+        if (poolProxy.url) _pool.markOffline(poolProxy.url)
       } else {
         newFails++
         // Помечаем в пуле если не в cooldown уже
-        if (!wasInCooldown && proxy._url) {
+        if (!wasInCooldown && poolProxy.url) {
           // Принудительно добавляем страйк через markFailed
-          for (let s = 0; s < 5; s++) markProxyFailed(proxy._url)
+          for (let s = 0; s < 5; s++) markProxyFailed(poolProxy.url)
         }
       }
 
       console.warn(`[ProxyHealth] ❌ Proxy #${i} (${proxy.url}) — ${err}`)
     } else {
-      if (proxy._url) _pool.markOnline(proxy._url)
+      if (poolProxy.url) _pool.markOnline(poolProxy.url)
       if (wasInCooldown) newRecoveries++
       if (result.value.warn) {
         console.warn(`[ProxyHealth] ⚠️  Proxy #${i} — ${result.value.warn}`)
