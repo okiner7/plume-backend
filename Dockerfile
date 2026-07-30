@@ -1,10 +1,14 @@
-FROM node:22-alpine
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
 # Копируем манифесты и ставим зависимости (без devDependencies)
 COPY package*.json ./
 RUN npm install --omit=dev
+
+# Устанавливаем браузер chromium для playwright и все необходимые системные зависимости
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx playwright install chromium --with-deps
 
 # Копируем весь остальной код
 COPY . .
