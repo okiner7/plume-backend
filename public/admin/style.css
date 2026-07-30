@@ -674,3 +674,55 @@ textarea.input-base {
   color: var(--text-muted);
   font-size: 11px;
 }
+
+/* --- API Stats List --- */
+#api-stats-list {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.api-bar-container {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 4px;
+  gap: 6px 12px;
+  align-items: center;
+}
+
+.api-bar-label {
+  font-size: 13px;
+  font-family: 'Fira Code', monospace;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.api-bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.api-bar-track {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 4px;
+  background-color: var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.api-bar-fill {
+  height: 100%;
+  background-color: #32d74b;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
