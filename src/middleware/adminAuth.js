@@ -4,12 +4,20 @@ const jwt = require('../services/auth/jwt')
 
 const adminAuth = async (req, res, next) => {
   try {
+    let token = null
     const authHeader = req.headers.authorization
-    if (!authHeader) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1]
+    } else if (authHeader) {
+      token = authHeader
+    } else if (req.query && req.query.token) {
+      token = req.query.token
+    }
+
+    if (!token) {
       return res.status(401).json({ success: false, error: 'Unauthorized: No token provided' })
     }
 
-    const token = authHeader.split(' ')[1]
     const decoded = jwt.verify(token)
     
     // Check hardcoded env variables first (super-admins)

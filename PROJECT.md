@@ -1,21 +1,18 @@
-# Project: Proxy Latency Optimization
+# Project: lunex-backendv2 - Plume Admin Panel SSE Real-Time Push Integration
 
 ## Architecture
-- `proxyManager.js`: Core proxy management module responsible for storing proxy pools, agent creation, health status, and proxy selection logic (`getCountryAwareAgent`).
-- Target services: SoundCloud and YouTube stream fetching.
+- **Backend Stream Endpoint**: `GET /api/admin/stream` returning `Content-Type: text/event-stream`. Admin authenticated.
+- **Broadcaster Hub**: Reuses `admin:metrics`, `admin:logs`, `apiTracker` middleware, online users tracker.
+- **Frontend Admin Panel (`/public`)**: Replaces `setInterval` polling with `EventSource` connection. Auto-reconnection support.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| 1 | Exploration & Architecture Analysis | Locate proxy files, analyze `proxyManager.js` structure, proxy objects, cooldown logic, and ping target APIs | none | DONE |
-| 2 | Background Ping & Smart Selection Implementation | Implement background ping loop in `proxyManager.js` (R1) & update `getCountryAwareAgent` for smart latency-based selection (R2) | M1 | DONE |
-| 3 | Verification & Benchmarking | Execute 10 sequential stream requests via `test_proxy_latency.js`, verify <800ms average latency, run Forensic Audit | M2 | IN_PROGRESS |
-
-## Interface Contracts
-### `proxyManager.js`
-- `getCountryAwareAgent(service, country, options)`: Returns HTTP agent for proxy with lowest recorded latency among non-cooldown active proxies.
-- Background ping task: runs periodically (e.g. every 15-30s), pings SoundCloud/YouTube endpoints through active proxies, updates `proxy.latency` or `proxy.latencyMap`.
+|---|------|-------|--------------|--------|
+| 1 | Backend SSE Endpoint & Event Broadcaster | `GET /api/admin/stream`, heartbeat 15s, metrics 5s, real-time `api_hit` broadcast | None | DONE |
+| 2 | Frontend Plume Admin SSE Migration | Replace polling loops in `/public` admin panel, setup `EventSource` auto-reconnect, reactive UI update | M1 | DONE |
+| 3 | E2E Testing & Verification | E2E integration test, unit test suite verification, reviewer, challenger, forensic integrity check | M1, M2 | DONE |
 
 ## Code Layout
-- Proxy management: `src/utils/proxyManager.js` or `proxyManager.js` (to be confirmed by Explorer)
-- Test script: `test_proxy_latency.js`
+- `src/` - Node.js Backend source files (routes, middleware, controllers, services)
+- `public/` - Plume Admin Panel static HTML/JS frontend assets
+- `tests/` - Backend and integration test suites

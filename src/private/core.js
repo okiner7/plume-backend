@@ -1,6 +1,8 @@
 var chartInstance = null
 var apiChartInstance = null
-var logsInterval = null
+var sseSource = null
+var sseReconnectTimer = null
+var sseReconnectDelay = 1000
 
 function initDashboard() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
@@ -29,7 +31,220 @@ function initDashboard() {
     })
   })
 
+  connectAdminSSE()
   switchTab('overview')
+}
+
+function connectAdminSSE() {
+  if (sseSource) {
+    sseSource.close()
+    sseSource = null
+  }
+  if (!jwtToken) return
+
+  const streamUrl = `/api/admin/stream?token=${encodeURIComponent(jwtToken)}`
+  sseSource = new EventSource(streamUrl)
+
+  sseSource.onopen = () => {
+    console.log('[SSE] Stream connected successfully')
+    sseReconnectDelay = 1000
+    updateConnectionStatusUI(true)
+  }
+
+  sseSource.addEventListener('metrics', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      handleSSEMetrics(data)
+    } catch (err) {
+      console.error('[SSE] Metrics parse error:', err)
+    }
+  })
+
+  sseSource.addEventListener('logs', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      handleSSELogs(data)
+    } catch (err) {
+      console.error('[SSE] Logs parse error:', err)
+    }
+  })
+
+  sseSource.addEventListener('api_hit', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      handleSSEApiHit(data)
+    } catch (err) {
+      console.error('[SSE] ApiHit parse error:', err)
+    }
+  })
+
+  sseSource.onerror = () => {
+    console.warn(`[SSE] Connection dropped. Retrying in ${sseReconnectDelay}ms...`)
+    updateConnectionStatusUI(false)
+    if (sseSource) {
+      sseSource.close()
+      sseSource = null
+    }
+
+    if (sseReconnectTimer) clearTimeout(sseReconnectTimer)
+    sseReconnectTimer = setTimeout(() => {
+      sseReconnectDelay = Math.min(sseReconnectDelay * 1.5, 30000)
+      connectAdminSSE()
+    }, sseReconnectDelay)
+  }
+}
+
+function disconnectAdminSSE() {
+  if (sseReconnectTimer) {
+    clearTimeout(sseReconnectTimer)
+    sseReconnectTimer = null
+  }
+  if (sseSource) {
+    sseSource.close()
+    sseSource = null
+  }
+  updateConnectionStatusUI(false)
+}
+
+function updateConnectionStatusUI(connected) {
+  const statusBadge = document.getElementById('sse-status-badge')
+  if (!statusBadge) return
+
+  if (connected) {
+    statusBadge.className = 'badge live-connected'
+    statusBadge.innerHTML = '<span class="pulse-dot"></span> LIVE'
+  } else {
+    statusBadge.className = 'badge live-disconnected'
+    statusBadge.innerText = 'RECONNECTING...'
+  }
+}
+
+function handleSSEMetrics(data) {
+  if (!data) return
+
+  if (data.stats) {
+    const total = typeof data.stats.totalUsers === 'object' 
+      ? Object.values(data.stats.totalUsers).reduce((a, b) => a + b, 0)
+      : (data.stats.totalUsers || 0)
+    const active = typeof data.stats.activeUsersToday === 'object'
+      ? Object.values(data.stats.activeUsersToday).reduce((a, b) => a + b, 0)
+      : (data.stats.activeUsersToday || 0)
+
+    const activeElem = document.getElementById('stat-active-users')
+    const totalElem = document.getElementById('stat-total-users')
+    if (activeElem) activeElem.innerText = active
+    if (totalElem) totalElem.innerText = total
+  }
+
+  if (data.memory) {
+    const memElem = document.getElementById('stat-memory')
+    if (memElem) memElem.innerText = `${data.memory.appMemoryMB || data.memory.rss || data.ram} MB`
+  }
+
+  if (data.redis) {
+    const redisElem = document.getElementById('stat-redis')
+    if (redisElem) {
+      redisElem.innerText = data.redis.enabled 
+        ? String(data.redis.status || 'READY').toUpperCase() 
+        : 'DISABLED'
+    }
+  }
+
+  if (data.uptimeSeconds !== undefined) {
+    const uptimeElem = document.getElementById('stat-uptime')
+    if (uptimeElem) {
+      const hrs = Math.floor(data.uptimeSeconds / 3600)
+      const mins = Math.floor((data.uptimeSeconds % 3600) / 60)
+      uptimeElem.innerText = `${hrs}h ${mins}m`
+    }
+  }
+
+  if (Array.isArray(data.history) && data.history.length > 0) {
+    updateChart(data.history)
+  } else if (data.time && data.ram !== undefined) {
+    appendChartPoint(data.time, data.ram, data.users || 0)
+  }
+}
+
+function appendChartPoint(time, ram, users) {
+  if (!chartInstance) return
+  const labels = chartInstance.data.labels
+  const ramDataset = chartInstance.data.datasets[0]?.data
+  const usersDataset = chartInstance.data.datasets[1]?.data
+
+  if (labels && ramDataset && usersDataset) {
+    labels.push(time)
+    ramDataset.push(ram)
+    usersDataset.push(users)
+
+    if (labels.length > 50) {
+      labels.shift()
+      ramDataset.shift()
+      usersDataset.shift()
+    }
+    chartInstance.update('none')
+  }
+}
+
+function handleSSELogs(data) {
+  const term = document.getElementById('terminal-output')
+  if (!term) return
+
+  let lines = []
+  if (Array.isArray(data)) {
+    lines = data
+  } else if (typeof data === 'string') {
+    lines = [data]
+  } else if (data && data.log) {
+    lines = [data.log]
+  }
+
+  if (lines.length === 0) return
+
+  const newContent = lines.join('\n')
+  if (term.textContent === 'Loading logs...' || term.textContent === 'No logs yet...') {
+    term.textContent = newContent
+  } else {
+    term.textContent += '\n' + newContent
+    const allLines = term.textContent.split('\n')
+    if (allLines.length > 300) {
+      term.textContent = allLines.slice(allLines.length - 300).join('\n')
+    }
+  }
+  term.scrollTop = term.scrollHeight
+}
+
+function handleSSEApiHit(data) {
+  const feedContainer = document.getElementById('live-api-feed')
+  if (!feedContainer) return
+
+  if (feedContainer.firstElementChild && feedContainer.firstElementChild.textContent.includes('Waiting for live')) {
+    feedContainer.innerHTML = ''
+  }
+
+  const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString()
+  const statusClass = data.status >= 500 ? 'badge-danger' : (data.status >= 400 ? 'badge-warning' : 'badge-success')
+  const methodUpper = (data.method || 'GET').toUpperCase()
+  let methodClass = 'method-get'
+  if (methodUpper === 'POST') methodClass = 'method-post'
+  else if (methodUpper === 'DELETE') methodClass = 'method-delete'
+  else if (methodUpper === 'PUT' || methodUpper === 'PATCH') methodClass = 'method-put'
+
+  const item = document.createElement('div')
+  item.className = 'live-feed-item'
+  item.innerHTML = `
+    <span class="feed-time">${timeStr}</span>
+    <span class="feed-method ${methodClass}">${methodUpper}</span>
+    <span class="feed-path">${data.path}</span>
+    <span class="feed-status ${statusClass}">${data.status}</span>
+    <span class="feed-duration">${data.duration}ms</span>
+  `
+
+  feedContainer.insertBefore(item, feedContainer.firstChild)
+
+  while (feedContainer.children.length > 30) {
+    feedContainer.removeChild(feedContainer.lastChild)
+  }
 }
 
 async function apiRequest(endpoint, method = 'GET', body = null) {
@@ -58,15 +273,13 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
   return data.data !== undefined ? data.data : data
 }
 
-
-
 function logout() {
+  disconnectAdminSSE()
   localStorage.removeItem('plume_admin_jwt')
   jwtToken = ''
   document.getElementById('jwtToken').value = ''
   document.getElementById('dashboard-view').classList.remove('active')
   document.getElementById('auth-view').classList.add('active')
-  if (logsInterval) clearInterval(logsInterval)
 }
 
 function switchTab(tabId) {
@@ -78,18 +291,13 @@ function switchTab(tabId) {
   const pane = document.getElementById(`tab-${tabId}`)
   if (pane) pane.classList.add('active')
   
-  if (logsInterval) clearInterval(logsInterval)
-
   if (tabId === 'overview') fetchStats()
   else if (tabId === 'users') fetchRecentUsers()
   else if (tabId === 'proxies') fetchProxies()
   else if (tabId === 'insights') fetchInsights()
   else if (tabId === 'api') fetchApiStats()
   else if (tabId === 'updates') fetchUpdates()
-  else if (tabId === 'logs') {
-    fetchLogs()
-    logsInterval = setInterval(fetchLogs, 2000)
-  }
+  else if (tabId === 'logs') fetchLogs()
 }
 
 async function fetchStats() {
@@ -563,6 +771,8 @@ function closeUserModal() {
 window.closeUserModal = closeUserModal
 window.login = login
 window.logout = logout
+window.connectAdminSSE = connectAdminSSE
+window.disconnectAdminSSE = disconnectAdminSSE
 window.fetchStats = fetchStats
 window.fetchRecentUsers = fetchRecentUsers
 window.fetchProxies = fetchProxies

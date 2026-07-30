@@ -587,3 +587,90 @@ textarea.input-base {
   height: 250px;
   width: 100%;
 }
+
+/* --- SSE Status Badge & Live Feed --- */
+.live-connected {
+  background: rgba(50, 215, 75, 0.15) !important;
+  color: #32d74b !important;
+  border: 1px solid rgba(50, 215, 75, 0.3) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-disconnected {
+  background: rgba(255, 69, 58, 0.15) !important;
+  color: #ff453a !important;
+  border: 1px solid rgba(255, 69, 58, 0.3) !important;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #32d74b;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(50, 215, 75, 0.7);
+  animation: pulse-green 1.5s infinite;
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(50, 215, 75, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(50, 215, 75, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(50, 215, 75, 0);
+  }
+}
+
+.live-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  font-family: 'Fira Code', monospace;
+}
+.live-feed-item:last-child {
+  border-bottom: none;
+}
+.feed-time {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.feed-method {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.method-get { background: rgba(50, 215, 75, 0.15); color: #32d74b; }
+.method-post { background: rgba(108, 92, 231, 0.15); color: #a29bfe; }
+.method-delete { background: rgba(255, 69, 58, 0.15); color: #ff453a; }
+.method-put { background: rgba(253, 203, 110, 0.15); color: #ffeaa7; }
+
+.feed-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feed-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.badge-success { background: rgba(50, 215, 75, 0.15); color: #32d74b; }
+.badge-warning { background: rgba(253, 203, 110, 0.15); color: #ffeaa7; }
+.badge-danger { background: rgba(255, 69, 58, 0.15); color: #ff453a; }
+.feed-duration {
+  color: var(--text-muted);
+  font-size: 11px;
+}

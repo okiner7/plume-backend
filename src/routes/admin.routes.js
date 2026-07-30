@@ -43,6 +43,7 @@ const upload = multer({ storage })
 
 // Log interception for Admin Panel
 const { redis } = require('../middleware/cache')
+const sseBroadcaster = require('../services/sseBroadcaster')
 
 function captureLog(type, args) {
   const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
@@ -52,6 +53,8 @@ function captureLog(type, args) {
     redis.rpush('admin:logs', logStr).catch(() => {})
     redis.ltrim('admin:logs', -200, -1).catch(() => {})
   }
+
+  sseBroadcaster.broadcastLog(logStr)
 }
 
 // Metrics History for Chart (Only gathered by primary instance to avoid overlaps)
@@ -87,6 +90,27 @@ if (isPrimaryWorker && process.env.NODE_ENV !== 'test') {
 
 // All routes here are protected by adminAuth
 router.use(adminAuth)
+
+router.get('/stream', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  })
+
+  if (req.socket) {
+    req.socket.setTimeout(0)
+    req.socket.setNoDelay(true)
+    req.socket.setKeepAlive(true)
+  }
+
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders()
+  }
+
+  sseBroadcaster.addClient(res, req, req.user)
+})
 
 router.get('/core.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../private/core.js'))

@@ -1,4 +1,5 @@
 const { redis } = require('./cache')
+const sseBroadcaster = require('../services/sseBroadcaster')
 
 // Basic UUID and Number normalizer for paths
 function normalizePath(path) {
@@ -29,6 +30,8 @@ function apiTracker(req, res, next) {
     return next()
   }
 
+  const startTime = Date.now()
+
   if (redis && redis.status === 'ready') {
     const method = req.method
     const path = normalizePath(req.path)
@@ -43,6 +46,17 @@ function apiTracker(req, res, next) {
     // Set expiry to 48 hours to clean up automatically
     redis.expire(hashKey, 48 * 3600).catch(() => {})
   }
+
+  res.on('finish', () => {
+    const duration = Date.now() - startTime
+    sseBroadcaster.broadcastApiHit({
+      method: req.method,
+      path: req.originalUrl || req.path,
+      status: res.statusCode,
+      duration,
+      timestamp: new Date().toISOString()
+    })
+  })
 
   next()
 }
