@@ -3,9 +3,12 @@ const { TELEGRAM_BOT_TOKEN, DEV_TELEGRAM_IDS } = require('../../config/env')
 const authCodeStore = require('../storage/authCodeStore')
 const NodeCache = require('node-cache')
 
+const https = require('https')
+
 const rateLimitCache = new NodeCache({ stdTTL: 5, checkperiod: 5 })
 const loginCooldownCache = new NodeCache({ stdTTL: 300, checkperiod: 60 })
 let bot = null
+const httpsAgent = new https.Agent({ keepAlive: true })
 
 function start() {
   if (!TELEGRAM_BOT_TOKEN) {
@@ -13,7 +16,7 @@ function start() {
     return
   }
 
-  bot = new Telegraf(TELEGRAM_BOT_TOKEN)
+  bot = new Telegraf(TELEGRAM_BOT_TOKEN, { telegram: { agent: httpsAgent } })
 
   // Anti-spam middleware for Telegram Bot
   bot.use((ctx, next) => {
@@ -52,8 +55,6 @@ function start() {
       if (photos.total_count > 0) {
         const fileId = photos.photos[0][0].file_id
         const file = await ctx.telegram.getFile(fileId)
-        // LNX-2026-007 fix: сохраняем только file_path, без токена бота в URL
-        // URL с токеном генерируется динамически на бэкенде в /me роуте
         avatar = file.file_path || null
       }
     } catch (err) {
@@ -91,10 +92,17 @@ async function sendAdminAlert(message) {
   if (!bot || !DEV_TELEGRAM_IDS || !DEV_TELEGRAM_IDS.length) return
   
   for (const adminId of DEV_TELEGRAM_IDS) {
-    try {
-      await bot.telegram.sendMessage(adminId, `🚨 *Plume Alert*\n\n${message}`, { parse_mode: 'Markdown' })
-    } catch (err) {
-      console.warn(`[TG Bot] Failed to send alert to admin ${adminId}:`, err.message)
+    let retries = 3
+    while (retries > 0) {
+      try {
+        await bot.telegram.sendMessage(adminId, `🚨 *Plume Alert*\n\n${message}`, { parse_mode: 'Markdown' })
+        break
+      } catch (err) {
+        console.warn(`[TG Bot] Failed to send alert to admin ${adminId}:`, err.message)
+        retries--
+        if (retries === 0) break
+        await new Promise(res => setTimeout(res, 2000))
+      }
     }
   }
 }
