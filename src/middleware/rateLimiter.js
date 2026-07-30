@@ -26,7 +26,21 @@ const strictAuthLimiter = rateLimit({
   }
 })
 
+const streamLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  limit: 30,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  message: {
+    success: false,
+    error: 'Too many stream requests, please try again later.'
+  }
+})
+
 module.exports = {
   globalLimiter,
-  strictAuthLimiter
+  strictAuthLimiter,
+  streamLimiter
 }

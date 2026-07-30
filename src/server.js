@@ -4,7 +4,7 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const compression = require('compression')
-const { globalLimiter } = require('./middleware/rateLimiter')
+const { globalLimiter, streamLimiter } = require('./middleware/rateLimiter')
 const morgan = require('morgan')
 const routes = require('./routes')
 const telegramBot = require('./services/bot/telegramBot')
@@ -87,6 +87,9 @@ app.use((req, res, next) => {
 // Global Rate Limiting (100 requests per 15 minutes per IP)
 app.use(globalLimiter)
 
+// Dedicated Audio Streaming Rate Limiting (30 requests per minute per IP)
+app.use(['/api/yt/stream', '/api/sc/stream'], streamLimiter)
+
 // CORS — разрешаем только конкретные origins (LNX-2026-008 fix)
 const ALLOWED_ORIGINS = [
   /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?$/,
@@ -116,7 +119,7 @@ app.use(apiTracker)
 app.use(routes)
 
 app.use((err, req, res, next) => {
-  const status = err.status || 500
+  const status = err.status || err.statusCode || (err.name === 'AppError' || err.name === 'ZodError' ? 400 : 500)
   console.error('[ERROR]:', err.message)
 
   // Send Telegram alert for unexpected server errors (5xx only, not 4xx client errors)

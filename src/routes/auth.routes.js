@@ -10,6 +10,7 @@ const authCodeStore = require('../services/storage/authCodeStore')
 const { strictAuthLimiter } = require('../middleware/rateLimiter')
 const { validateBody } = require('../middleware/validate')
 const { telegramAuthSchema, verifyCodeSchema } = require('../schemas/auth.schema')
+const AppError = require('../utils/AppError')
 
 const router = Router()
 
@@ -33,7 +34,7 @@ function isSafeCallback(callbackUrl) {
 router.get('/google/callback', strictAuthLimiter, asyncHandler(async (req, res) => {
   const { code, state } = req.query
   const callback = req.query.callback || state
-  if (!code) throw new Error('Authorization code required')
+  if (!code) throw new AppError('Authorization code required', 400)
 
   const tokens = await google.exchangeCode(code)
   const profile = await google.getProfile(tokens.access_token)
@@ -64,7 +65,7 @@ router.get('/google/callback', strictAuthLimiter, asyncHandler(async (req, res) 
 router.post('/telegram', strictAuthLimiter, validateBody(telegramAuthSchema), asyncHandler(async (req) => {
   const data = req.body
   const profile = telegram.validateAuthData(data)
-  if (!profile) throw new Error('Invalid Telegram auth data')
+  if (!profile) throw new AppError('Invalid Telegram auth data', 401)
 
   await userStore.findOrCreate('telegram', profile.telegramId, {
     name: profile.username,
@@ -88,14 +89,14 @@ router.post('/telegram', strictAuthLimiter, validateBody(telegramAuthSchema), as
 
 router.post('/verify-code', strictAuthLimiter, validateBody(verifyCodeSchema), asyncHandler(async (req) => {
   const { code } = req.body
-  if (!code) throw new Error('Code required')
+  if (!code) throw new AppError('Code required', 400)
 
   const codeDoc = await authCodeStore.findByCode(code)
-  if (!codeDoc) throw new Error('Invalid code')
+  if (!codeDoc) throw new AppError('Invalid code', 400)
 
   if (new Date() > new Date(codeDoc.expiresAt)) {
     await authCodeStore.remove(codeDoc._id)
-    throw new Error('Code expired')
+    throw new AppError('Code expired', 400)
   }
 
   await authCodeStore.remove(codeDoc._id)
@@ -130,7 +131,7 @@ router.post('/verify-code', strictAuthLimiter, validateBody(verifyCodeSchema), a
 
 router.get('/verify', asyncHandler(async (req) => {
   const header = req.headers.authorization
-  if (!header) throw new Error('No token')
+  if (!header) throw new AppError('No token', 401)
   const decoded = jwt.verify(header.split(' ')[1])
   return { valid: true, user: decoded }
 }))
