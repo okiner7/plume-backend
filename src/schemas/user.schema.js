@@ -35,7 +35,7 @@ const addTrackSchema = z.object({
 const updateSettingsSchema = z.object({
   theme: z.string().optional(),
   accent: z.string().optional(),
-  customThemeData: z.record(z.any()).optional()
+  customThemeData: z.record(z.any()).nullable().optional()
 }).strict()
 
 const searchHistorySchema = z.object({
