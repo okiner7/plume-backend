@@ -39,12 +39,14 @@ async function addTrack(playlistId, ownerId, track) {
   const pl = await getOne(playlistId)
   if (!pl) throw new Error('Playlist not found')
   if (pl.ownerId !== ownerId) throw new Error('Forbidden')
-  if (pl.tracks && pl.tracks.length >= 500) throw new Error('Playlist is full (max 500 tracks)')
 
-  await db.playlists.updateOne(
-    { _id: playlistId, ownerId },
+  const res = await db.playlists.updateOne(
+    { _id: playlistId, ownerId, 'tracks.499': { $exists: false } },
     { $push: { tracks: track }, $set: { updatedAt: new Date() } }
   )
+  if (!res || res.matchedCount === 0) {
+    throw new Error('Playlist is full (max 500 tracks)')
+  }
   return true
 }
 
