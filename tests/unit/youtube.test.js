@@ -1,4 +1,5 @@
-const { normaliseTrack, shuffleBiased } = require('../../src/services/youtube/search');
+const { searchAlbums, normaliseTrack, shuffleBiased } = require('../../src/services/youtube/search');
+const { getPlaylistTracks } = require('../../src/services/youtube/playlist');
 const { ytmusic, init, requestInterceptor, responseSuccessInterceptor, responseErrorInterceptor } = require('../../src/services/youtube/client');
 const proxyManager = require('../../src/middleware/proxyManager');
 
@@ -41,6 +42,62 @@ describe('YouTube Search Utilities', () => {
     expect(shuffled.length).toBe(arr.length);
     // Elements should be the same, just order changed
     expect(shuffled).toEqual(expect.arrayContaining(arr));
+  });
+});
+
+describe('YouTube Album Search & Playlist Tracks Parsing (R4)', () => {
+  it('should search albums and return normalized album objects', async () => {
+    jest.spyOn(ytmusic, 'searchAlbums').mockResolvedValue([
+      {
+        albumId: 'MPREb_12345',
+        name: 'Test Album Title',
+        artist: { name: 'Test Artist' },
+        year: '2024',
+        thumbnails: [{ url: 'cover_small.jpg' }, { url: 'cover_large.jpg' }]
+      }
+    ]);
+
+    const results = await searchAlbums('test album');
+    expect(results.length).toBe(1);
+    expect(results[0].id).toBe('MPREb_12345');
+    expect(results[0].source).toBe('youtube');
+    expect(results[0].itemType).toBe('album');
+    expect(results[0].title).toBe('Test Album Title');
+    expect(results[0].artist).toBe('Test Artist');
+    expect(results[0].artwork).toBe('cover_large.jpg');
+  });
+
+  it('should parse playlist tracks with t.artist object and include source: youtube', async () => {
+    jest.spyOn(ytmusic, 'getPlaylistVideos').mockResolvedValue([
+      {
+        videoId: 'yt_track_1',
+        name: 'Playlist Track 1',
+        artist: { name: 'Solo Artist', artistId: 'artist_1' },
+        duration: 180,
+        thumbnails: [{ url: 'thumb.jpg' }]
+      },
+      {
+        videoId: 'yt_track_2',
+        name: 'Playlist Track 2',
+        artists: [{ name: 'Band Member 1' }, { name: 'Band Member 2' }],
+        duration: 200,
+        thumbnails: [{ url: 'thumb2.jpg' }]
+      }
+    ]);
+
+    const tracks = await getPlaylistTracks('PL123456');
+    expect(tracks.length).toBe(2);
+
+    expect(tracks[0].id).toBe('yt_track_1');
+    expect(tracks[0].source).toBe('youtube');
+    expect(tracks[0].artist).toBe('Solo Artist');
+    expect(tracks[0].artistId).toBe('artist_1');
+    expect(tracks[0].duration).toBe(180000);
+
+    expect(tracks[1].id).toBe('yt_track_2');
+    expect(tracks[1].source).toBe('youtube');
+    expect(tracks[1].artist).toBe('Band Member 1, Band Member 2');
+    expect(tracks[1].duration).toBe(200000);
   });
 });
 

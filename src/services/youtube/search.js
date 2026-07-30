@@ -46,6 +46,40 @@ async function searchArtists(q) {
     }))
 }
 
+async function searchAlbums(q) {
+  await init()
+  const results = await ytmusic.searchAlbums(q).catch(() => null)
+  return safeArray(results)
+    .filter(a => a.albumId || a.browseId)
+    .map(a => {
+      const id = a.albumId || a.browseId
+      let artistName = 'Unknown Artist'
+      if (typeof a.artist === 'string' && a.artist) {
+        artistName = a.artist
+      } else if (a.artist?.name) {
+        artistName = a.artist.name
+      } else if (Array.isArray(a.artists) && a.artists.length > 0) {
+        artistName = a.artists.map(art => (typeof art === 'string' ? art : (art.name || 'Unknown'))).filter(Boolean).join(', ')
+      } else if (a.author) {
+        artistName = typeof a.author === 'string' ? a.author : (a.author.name || 'Unknown Artist')
+      }
+
+      return {
+        id,
+        albumId: id,
+        browseId: id,
+        source: 'youtube',
+        itemType: 'album',
+        title: a.name || a.title || 'Untitled Album',
+        artist: artistName,
+        year: a.year || null,
+        artwork: a.thumbnails?.at(-1)?.url || null,
+        thumbnails: a.thumbnails || [],
+        url: `https://music.youtube.com/browse/${id}`
+      }
+    })
+}
+
 async function searchPlaylists(q) {
   await init()
   const results = await ytmusic.searchPlaylists(q).catch(() => null)
@@ -152,4 +186,4 @@ async function getUpNexts(videoId, historyIds = []) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-module.exports = { search, searchArtists, searchPlaylists, getUpNexts, normaliseTrack, shuffleBiased }
+module.exports = { search, searchArtists, searchAlbums, searchPlaylists, getUpNexts, normaliseTrack, shuffleBiased }

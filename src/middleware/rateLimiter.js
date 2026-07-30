@@ -2,8 +2,8 @@ const rateLimit = require('express-rate-limit')
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 2000,
-  max: 2000,
+  limit: process.env.NODE_ENV === 'test' ? 100 : 2000,
+  max: process.env.NODE_ENV === 'test' ? 100 : 2000,
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },

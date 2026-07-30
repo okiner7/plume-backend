@@ -122,6 +122,12 @@ router.get('/search-artists', cache(7200), asyncHandler(async (req) => {
   return await yt.searchArtists(q)
 }))
 
+router.get('/search-albums', cache(7200), asyncHandler(async (req) => {
+  const { q } = req.query
+  if (!q) throw new Error('Query required')
+  return await yt.searchAlbums(q)
+}))
+
 router.get('/search-playlists', cache(7200), asyncHandler(async (req) => {
   const { q } = req.query
   if (!q) throw new Error('Query required')
