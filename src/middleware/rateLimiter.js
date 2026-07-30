@@ -2,8 +2,8 @@ const rateLimit = require('express-rate-limit')
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 100,
-  max: 100,
+  limit: 2000,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },
@@ -28,8 +28,8 @@ const strictAuthLimiter = rateLimit({
 
 const streamLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  limit: 30,
-  max: 30,
+  limit: 300,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },
