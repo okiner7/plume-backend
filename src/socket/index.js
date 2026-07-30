@@ -10,6 +10,13 @@ let io = null
  * @param {object} corsOptions 
  * @returns {import('socket.io').Server}
  */
+function closeSocketServer() {
+  if (io) {
+    try { io.close() } catch (e) {}
+    io = null
+  }
+}
+
 function initSocketServer(httpServer, corsOptions) {
   const options = {}
   if (corsOptions) {
@@ -17,6 +24,12 @@ function initSocketServer(httpServer, corsOptions) {
   }
 
   io = new Server(httpServer, options)
+
+  if (httpServer && typeof httpServer.on === 'function') {
+    httpServer.on('close', () => {
+      closeSocketServer()
+    })
+  }
 
   // Apply authentication middleware
   io.use(socketAuthMiddleware)
@@ -38,8 +51,7 @@ function initSocketServer(httpServer, corsOptions) {
 module.exports = {
   initSocketServer,
   initSocket: initSocketServer,
-  init: initSocketServer,
-  setupWebSocket: initSocketServer,
+  closeSocketServer,
   broadcast,
   sendToUser
 }

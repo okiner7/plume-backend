@@ -21,6 +21,9 @@ router.post('/', authRequired, validateBody(postThemeSchema), asyncHandler(async
   if (!name || !themeData || typeof themeData !== 'object') {
     throw new Error('Valid name and themeData object are required')
   }
+  if (JSON.stringify(themeData).length > 50000) {
+    throw new Error('Theme payload size exceeds limit (50KB)')
+  }
   
   const authorId = `${req.user.provider}_${req.user.provider_id}`
   const authorName = String(req.user.name || 'Аноним').trim().slice(0, 100)

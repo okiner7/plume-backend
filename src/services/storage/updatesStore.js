@@ -26,29 +26,36 @@ class UpdatesStore {
     }
   }
 
+  async _saveAsync() {
+    try {
+      await fs.promises.mkdir(UPDATES_DIR, { recursive: true })
+      await fs.promises.writeFile(METADATA_FILE, JSON.stringify(this.metadata, null, 2))
+    } catch (err) {
+      console.error('[UpdatesStore] Error saving metadata:', err.message)
+    }
+  }
+
   _save() {
-    fs.writeFileSync(METADATA_FILE, JSON.stringify(this.metadata, null, 2))
+    this._saveAsync().catch(() => {})
   }
 
   _reload() {
-    if (fs.existsSync(METADATA_FILE)) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(METADATA_FILE, 'utf-8'))
-        // Migration: If raw data uses the old format (where platform is an object with a version, not an object with channels)
+    try {
+      if (fs.existsSync(METADATA_FILE)) {
+        const rawStr = fs.readFileSync(METADATA_FILE, 'utf-8')
+        const raw = JSON.parse(rawStr)
         const newMeta = {}
         for (const [platform, data] of Object.entries(raw)) {
           if (data.version && typeof data.version === 'string') {
-            // Old format: migrate to stable channel array
             newMeta[platform] = { stable: [data] }
           } else {
-            // New format
             newMeta[platform] = data
           }
         }
         this.metadata = newMeta
-      } catch (err) {
-        // keep old metadata if file is locked or corrupted temporarily
       }
+    } catch (err) {
+      // keep old metadata if file is locked or corrupted temporarily
     }
   }
 

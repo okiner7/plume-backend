@@ -19,18 +19,23 @@ const router = Router()
 router.get('/stream', asyncHandler(async (req, res) => {
   const { id, t, sig } = req.query
   if (!id) throw new Error('Video ID required')
-  if (!t || !sig) return res.status(403).json({ error: 'Auth required' })
+  if (!t || !sig) {
+    res.status(403).json({ success: false, error: 'Auth required' })
+    return
+  }
 
   const expectedSig = crypto.createHmac('sha256', APP_SECRET)
                             .update('/api/yt/stream' + t)
                             .digest('hex')
   if (sig !== expectedSig) {
-    return res.status(403).json({ error: 'Invalid signature' })
+    res.status(403).json({ success: false, error: 'Invalid signature' })
+    return
   }
 
   // Prevent replay attacks / eternal links (max 60 seconds diff)
   if (Math.abs(Date.now() - parseInt(t, 10)) > 60000) {
-    return res.status(403).json({ error: 'Stream link expired' })
+    res.status(403).json({ success: false, error: 'Stream link expired' })
+    return
   }
 
   const pm = require('../middleware/proxyManager')
