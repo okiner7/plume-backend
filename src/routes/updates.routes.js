@@ -34,20 +34,22 @@ router.get('/latest', (req, res) => {
 
 // GET /api/updates/download/:filename
 router.get('/download/:filename', (req, res) => {
-  // We no longer strictly check platform here since the filename is unique enough,
-  // but we can verify it exists in our metadata to prevent arbitrary file reading.
   const allUpdates = updatesStore.getUpdates()
-  let isValid = false
-  for (const platformData of Object.values(allUpdates)) {
-    for (const channelUpdates of Object.values(platformData)) {
-      if (channelUpdates.some(u => u.filename === req.params.filename)) {
-        isValid = true
-        break
+  let matchedUpdate = null
+  for (const platformData of Object.values(allUpdates || {})) {
+    for (const channelUpdates of Object.values(platformData || {})) {
+      if (Array.isArray(channelUpdates)) {
+        const found = channelUpdates.find(u => u.filename === req.params.filename)
+        if (found) {
+          matchedUpdate = found
+          break
+        }
       }
     }
+    if (matchedUpdate) break
   }
 
-  if (!isValid) {
+  if (!matchedUpdate) {
     return res.status(404).json({ success: false, error: 'File not found in update registry' })
   }
 
@@ -56,7 +58,7 @@ router.get('/download/:filename', (req, res) => {
     return res.status(404).json({ success: false, error: 'Update file is missing on the server' })
   }
 
-  res.download(filePath, update.filename)
+  res.download(filePath, matchedUpdate.filename)
 })
 
 module.exports = router
