@@ -24,6 +24,7 @@ class ProxyPool {
     this.pingInterval = null
     this._isPinging = false
     this._stopRequested = false
+    this._lastAlertSentAt = 0
     this.watcher = null
     this._load()
     this._watchFile()
@@ -120,6 +121,7 @@ class ProxyPool {
 
   // Hot reload: если изменили proxies.txt — подгружаем без рестарта
   _watchFile() {
+    if (process.env.NODE_ENV === 'test') return;
     try {
       if (fs.existsSync(PROXY_FILE)) {
         this.watcher = fs.watch(PROXY_FILE, () => {
@@ -379,7 +381,10 @@ class ProxyPool {
       console.warn(`[ProxyPool] Proxy ${proxy.url.replace(/:[^:@]+@/, ':***@')} → cooldown ${COOLDOWN_MS / 1000}s`)
       
       // Если все прокси легли — немедленно бьем тревогу в ТГ!
-      if (this.healthy === 0) {
+      const now = Date.now()
+      const ALERT_COOLDOWN_MS = 15 * 60 * 1000
+      if (this.healthy === 0 && (now - this._lastAlertSentAt > ALERT_COOLDOWN_MS)) {
+        this._lastAlertSentAt = now
         try {
           const telegramBot = require('../services/bot/telegramBot')
           telegramBot.sendAdminAlert(
@@ -426,7 +431,6 @@ class ProxyPool {
     return this.proxies.map((p, i) => ({
       index: i,
       url: p.url.replace(/:[^:@]+@/, ':***@'),
-      _url: p.url, // реальный URL для health checker
       country: p.country,
       fails: p.fails,
       status: p.isOffline ? 'offline' : (p.cooldownUntil > now ? `cooldown ${Math.round((p.cooldownUntil - now) / 1000)}s` : 'active'),

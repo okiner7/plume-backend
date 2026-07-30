@@ -43,8 +43,6 @@ const upload = multer({ storage })
 
 // Log interception for Admin Panel
 const { redis } = require('../middleware/cache')
-const originalLog = console.log
-const originalError = console.error
 
 function captureLog(type, args) {
   const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
@@ -53,17 +51,6 @@ function captureLog(type, args) {
   if (redis && redis.status === 'ready') {
     redis.rpush('admin:logs', logStr).catch(() => {})
     redis.ltrim('admin:logs', -200, -1).catch(() => {})
-  }
-}
-
-if (process.env.NODE_ENV !== 'test') {
-  console.log = function(...args) {
-    captureLog('INFO', args)
-    originalLog.apply(console, args)
-  }
-  console.error = function(...args) {
-    captureLog('ERROR', args)
-    originalError.apply(console, args)
   }
 }
 
@@ -332,9 +319,7 @@ router.delete('/updates/:platform/:channel/:version', asyncHandler(async (req) =
     const update = platformData[channel].find(u => u.version === version)
     if (update) {
       const filePath = path.join(process.cwd(), 'data', 'updates', update.filename)
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath)
-      }
+      await fs.promises.unlink(filePath).catch(() => {})
     }
   }
 
