@@ -75,12 +75,33 @@ async function setBanStatus(id, banned) {
 }
 
 // Throttle lastActiveAt updates (max once per 5 mins per user in memory)
-const activeUpdateCache = new Set()
+const activeUpdateCache = new Map()
+const MAX_ACTIVE_CACHE_SIZE = 5000
+const ACTIVE_CACHE_TTL_MS = 5 * 60 * 1000
+
+function isRecentlyActive(providerId) {
+  const now = Date.now()
+  const timestamp = activeUpdateCache.get(providerId)
+  if (timestamp && (now - timestamp < ACTIVE_CACHE_TTL_MS)) {
+    return true
+  }
+  if (activeUpdateCache.size >= MAX_ACTIVE_CACHE_SIZE) {
+    for (const [key, time] of activeUpdateCache.entries()) {
+      if (now - time >= ACTIVE_CACHE_TTL_MS) {
+        activeUpdateCache.delete(key)
+      }
+    }
+    if (activeUpdateCache.size >= MAX_ACTIVE_CACHE_SIZE) {
+      const oldestKey = activeUpdateCache.keys().next().value
+      activeUpdateCache.delete(oldestKey)
+    }
+  }
+  activeUpdateCache.set(providerId, now)
+  return false
+}
 
 async function updateLastActive(providerId, platform = 'unknown') {
-  if (activeUpdateCache.has(providerId)) return
-  activeUpdateCache.add(providerId)
-  setTimeout(() => activeUpdateCache.delete(providerId), 5 * 60 * 1000)
+  if (isRecentlyActive(providerId)) return
   
   const user = await findOne(providerId)
   if (user) {
@@ -91,15 +112,19 @@ async function updateLastActive(providerId, platform = 'unknown') {
 async function countActiveUsers() {
   if (!db.users) return { windows: 0, linux: 0, android: 0, unknown: 0 }
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  const docs = await db.users.find({ lastActiveAt: { $gte: oneDayAgo } }).toArray()
+  const pipeline = [
+    { $match: { lastActiveAt: { $gte: oneDayAgo } } },
+    { $group: { _id: '$lastPlatform', count: { $sum: 1 } } }
+  ]
+  const results = await db.users.aggregate(pipeline).toArray()
   
   const counts = { windows: 0, linux: 0, android: 0, unknown: 0 }
-  for (const doc of docs) {
-    const plat = doc.lastPlatform || 'unknown'
+  for (const item of results) {
+    const plat = item._id || 'unknown'
     if (counts[plat] !== undefined) {
-      counts[plat]++
+      counts[plat] = item.count
     } else {
-      counts.unknown++
+      counts.unknown += item.count
     }
   }
   return counts
@@ -121,15 +146,18 @@ async function addBadge(providerId, badge) {
 
 async function countAllUsers() {
   if (!db.users) return { windows: 0, linux: 0, android: 0, unknown: 0 }
-  const docs = await db.users.find({}).toArray()
+  const pipeline = [
+    { $group: { _id: '$lastPlatform', count: { $sum: 1 } } }
+  ]
+  const results = await db.users.aggregate(pipeline).toArray()
   
   const counts = { windows: 0, linux: 0, android: 0, unknown: 0 }
-  for (const doc of docs) {
-    const plat = doc.lastPlatform || 'unknown'
+  for (const item of results) {
+    const plat = item._id || 'unknown'
     if (counts[plat] !== undefined) {
-      counts[plat]++
+      counts[plat] = item.count
     } else {
-      counts.unknown++
+      counts.unknown += item.count
     }
   }
   return counts
