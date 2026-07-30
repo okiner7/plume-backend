@@ -48,14 +48,14 @@ async function getTopTracks(limit = 10) {
 }
 
 async function getTopSearches(limit = 10) {
-  const docs = await db.searchHist.find({}).toArray()
-  const counts = {}
-  for (const d of (docs || [])) {
-    if (!d.query) continue
-    counts[d.query] = (counts[d.query] || 0) + 1
-  }
-  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0, limit)
-  return sorted.map(([query, count]) => ({ query, count }))
+  if (!db.searchHist) return []
+  return await db.searchHist.aggregate([
+    { $match: { query: { $exists: true, $ne: null } } },
+    { $group: { _id: '$query', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: limit },
+    { $project: { _id: 0, query: '$_id', count: 1 } }
+  ]).toArray()
 }
 
 module.exports = { incrementListenCount, incrementSearchCount, getGlobalStats, incrementTrackPlay, getTopTracks, getTopSearches }
