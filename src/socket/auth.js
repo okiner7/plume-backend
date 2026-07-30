@@ -17,7 +17,10 @@ function socketAuthMiddleware(socket, next) {
   }
 
   if (!token || typeof token !== 'string') {
-    return next(new Error('Authentication error'))
+    // Allow anonymous connections
+    socket.user = null
+    socket.userId = null
+    return next()
   }
 
   if (token.toLowerCase().startsWith('bearer ')) {
