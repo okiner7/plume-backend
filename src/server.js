@@ -21,6 +21,7 @@ app.set('trust proxy', true)
 // Security Headers
 app.use(helmet({
   hsts: false, // Отключаем HSTS на бэкенде, так как HTTPS рулится на уровне Cloudflare
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Позволяет плееру на фронтенде загружать аудио поток
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],

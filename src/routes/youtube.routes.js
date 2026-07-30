@@ -28,6 +28,11 @@ router.get('/stream', asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Invalid signature' })
   }
 
+  // Prevent replay attacks / eternal links (max 60 seconds diff)
+  if (Math.abs(Date.now() - parseInt(t, 10)) > 60000) {
+    return res.status(403).json({ error: 'Stream link expired' })
+  }
+
   const pm = require('../middleware/proxyManager')
 
   let lastError;
