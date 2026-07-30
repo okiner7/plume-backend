@@ -5,7 +5,7 @@ const stealth = require('puppeteer-extra-plugin-stealth')();
 
 chromium.use(stealth);
 
-const DEFAULT_PROXY = 'http://huautker:uqtmxj0tnnpq@198.105.121.200:6462';
+const DEFAULT_PROXY = process.env.YTDL_DEFAULT_PROXY || '';
 const PLAYER_JS_URL = 'https://www.youtube.com/s/player/b81a9a58/player_es6.vflset/ru_RU/base.js';
 
 const proxyAgentCache = new Map();
@@ -497,7 +497,14 @@ async function runPlaywrightInterception(videoId, playwrightProxy, timeout = 150
             try { await context.close(); } catch (e) {}
         }
         if (browser) {
-            try { await browser.close(); } catch (e) {}
+            try {
+                await browser.close();
+            } catch (e) {
+                try {
+                    const proc = browser.process();
+                    if (proc && !proc.killed) proc.kill('SIGKILL');
+                } catch (err) {}
+            }
         }
     }
 }
