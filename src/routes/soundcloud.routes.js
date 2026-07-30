@@ -23,7 +23,7 @@ router.get('/search/playlists', cache(7200), asyncHandler(async (req) => {
   return await sc.searchPlaylists(q)
 }))
 
-router.get('/stream', asyncHandler(async (req) => {
+router.get('/stream', asyncHandler(async (req, res) => {
   let { url, id } = req.query
   if (!url && !id) throw new Error('Stream URL or track ID required')
 
