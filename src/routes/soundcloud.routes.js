@@ -30,14 +30,18 @@ router.get('/stream', asyncHandler(async (req) => {
   if (id) {
     try {
       const trackRes = await sc.requestFull(`/tracks/${id}`)
-      const trackData = trackRes.data
+    const trackData = trackRes.data
       const originalAgent = trackRes.config._proxyAgent
       const authParam = trackData.track_authorization
       
-      const unencrypted = trackData?.media?.transcodings?.filter(t => t.format.protocol === 'progressive' || t.format.protocol === 'hls') || []
+      // Нам нужен только progressive (цельный файл), так как HLS-плейлисты проксировать сложнее
+      const unencrypted = trackData?.media?.transcodings?.filter(t => t.format.protocol === 'progressive') || []
       
+      if (unencrypted.length === 0) {
+        throw new Error('No progressive stream found for track')
+      }
+
       const tcPromises = unencrypted.map(tc => {
-        // Делаем 1 попытку вместо 3, так как мы запускаем их параллельно
         return sc.request(tc.url, authParam ? { track_authorization: authParam } : {}, 1, originalAgent)
           .then(tcRes => {
              if (tcRes && tcRes.url) return tcRes.url;
@@ -54,10 +58,48 @@ router.get('/stream', asyncHandler(async (req) => {
         }
       }
 
-      if (foundUrl) return foundUrl
-      throw new Error('No valid stream found for track')
+      if (!foundUrl) throw new Error('No valid stream found for track')
+
+      // Проксируем поток клиенту, чтобы обойти блокировки SC в РФ
+      const reqHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*'
+      }
+      if (req.headers.range) {
+        reqHeaders['Range'] = req.headers.range
+      }
+
+      const streamRes = await fetch(foundUrl, { headers: reqHeaders })
+      
+      if (!streamRes.ok && streamRes.status !== 206) {
+        throw new Error(`Failed to fetch SC stream: ${streamRes.statusText}`)
+      }
+
+      const statusCode = streamRes.status || 200
+      res.status(statusCode)
+      res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg')
+      res.setHeader('Accept-Ranges', 'bytes')
+      if (streamRes.headers.get('content-length')) {
+        res.setHeader('Content-Length', streamRes.headers.get('content-length'))
+      }
+      if (streamRes.headers.get('content-range')) {
+        res.setHeader('Content-Range', streamRes.headers.get('content-range'))
+      }
+      
+      if (streamRes.body) {
+        const { Readable } = require('stream')
+        const nodeStream = typeof streamRes.body.pipe === 'function'
+          ? streamRes.body
+          : Readable.fromWeb(streamRes.body)
+        nodeStream.pipe(res)
+        return // Успешное проксирование
+      } else {
+        throw new Error('SC Stream body is empty')
+      }
+
     } catch (err) {
       console.error('[SoundCloud] Stream resolve error:', err.message)
+      throw err
     }
   }
 
@@ -77,7 +119,17 @@ router.get('/stream', asyncHandler(async (req) => {
         throw new Error('Invalid SoundCloud URL')
       }
       const data = await sc.request(safeUrl)
-      if (data && data.url) return data.url
+      if (data && data.url) {
+        const streamRes = await fetch(data.url)
+        if (!streamRes.ok) throw new Error('Failed to fetch SC stream fallback')
+        res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg')
+        if (streamRes.body) {
+          const { Readable } = require('stream')
+          const nodeStream = typeof streamRes.body.pipe === 'function' ? streamRes.body : Readable.fromWeb(streamRes.body)
+          nodeStream.pipe(res)
+          return
+        }
+      }
     }
   } catch (err) {
     throw err

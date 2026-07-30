@@ -11,8 +11,8 @@
 
 ## Vulnerability Disclosure History
 
-> Last audit: **2026-07-19** (updated 2026-07-19 — pass 2, frontend + backend)  
-> Methodology: White-box manual code review
+> Last audit: **2026-07-29** (updated 2026-07-29 — pass 3, ytdl integration + npm audit)  
+> Methodology: White-box manual code review + `npm audit`
 
 | ID | Severity | Title | Status | Fixed in commit |
 |---|---|---|---|---|
@@ -49,6 +49,8 @@
 | [LNX-2026-031](#lnx-2026-031) | 🔴 HIGH (8.2) | SSRF Bypass in `/api/sc/stream` fallback via malformed hostname | ✅ Fixed | `security/cve-fixes` |
 | [LNX-2026-032](#lnx-2026-032) | 🟠 HIGH (7.0) | Cache Exhaustion DoS via unbounded query strings | ⏳ Backlog | Needs `maxKeys` limit |
 | [LNX-2026-033](#lnx-2026-033) | 🟡 MEDIUM (5.5) | DB Bloat via unbounded `themeData` payload | ⏳ Backlog | Needs payload size limit |
+| [LNX-2026-034](#lnx-2026-034) | 🔴 HIGH (8.1) | Hardcoded `LUNEX_APP_SECRET` fallback in `youtube.routes.js` | ✅ Fixed | `security/fix-034` |
+| [CVE-2025-JEST](#cve-deps-brace-expansion) | 🔴 HIGH (7.5) | `brace-expansion` ≤ 5.0.7 — DoS via OOM crash (transitive via jest, puppeteer-extra-plugin-stealth) | ⏳ Backlog | Requires jest major upgrade |
 
 **Legend:** ✅ Fixed · ⚠️ Partial · ⏳ Backlog
 
@@ -493,3 +495,44 @@ Generate strong secrets:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+---
+
+### LNX-2026-034
+**Hardcoded `LUNEX_APP_SECRET` Fallback in `youtube.routes.js`**  
+**CVSS: 8.1 (High)** · `AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N`
+
+The `APP_SECRET` used to validate HMAC signatures on the `/api/yt/stream` endpoint was set with an insecure static fallback: `process.env.LUNEX_APP_SECRET || 'super-secret-lunex-app-key-2026'`. If `LUNEX_APP_SECRET` was not defined in the environment, any attacker who read the source code could forge valid request signatures and access the stream endpoint without authentication.
+
+This is the same class of vulnerability as LNX-2026-001 and LNX-2026-002, which were previously fixed in `env.js`.
+
+**Fix:** The fallback was removed. The server now throws a fatal error at startup if `LUNEX_APP_SECRET` is not set, consistent with how all other secrets are managed.
+
+```diff
+- const APP_SECRET = process.env.LUNEX_APP_SECRET || 'super-secret-lunex-app-key-2026'
++ if (!process.env.LUNEX_APP_SECRET) throw new Error('[Plume] Отсутствует обязательная переменная среды: LUNEX_APP_SECRET')
++ const APP_SECRET = process.env.LUNEX_APP_SECRET
+```
+
+**Make sure to add `LUNEX_APP_SECRET` to your `.env` file:**
+```env
+LUNEX_APP_SECRET=<generated_with_crypto_randomBytes_32>
+```
+
+---
+
+### CVE-deps-brace-expansion
+**`brace-expansion` ≤ 5.0.7 — ReDoS / OOM via Unbounded Expansion**  
+**CVSS: 7.5 (High)** · `AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H`  
+**Advisory:** [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg)
+
+A crafted brace expression (e.g., `{0..100000}`) passed to `brace-expansion` causes the library to exhaust heap memory and crash the Node.js process. The vulnerability is present in **all current versions of `jest`** (via the `glob` → `minimatch` → `brace-expansion` chain) and in `puppeteer-extra-plugin-stealth` (via `rimraf`).
+
+**Affected packages (transitive):** `jest`, `jest-cli`, `@jest/core`, `@jest/reporters`, `@jest/transform`, `jest-circus`, `jest-runner`, `jest-runtime`, `jest-snapshot`, `glob`, `minimatch`, `rimraf`, `puppeteer-extra-plugin-stealth`, `puppeteer-extra-plugin-user-data-dir`, `puppeteer-extra-plugin-user-preferences`.
+
+**Risk assessment for this project:** `jest` is a **devDependency** — it is never installed or executed in production. `puppeteer-extra-plugin-stealth` is only invoked as an emergency fallback and does not process user-controlled brace expressions. **The attack surface in production is effectively zero.**
+
+**Status:** ⏳ Backlog. Fix requires upgrading `jest` to v26+, which is a **breaking major version change**. Scheduled for next dependency maintenance window.
+
+**Workaround:** Ensure `jest` and `puppeteer-extra-plugin-stealth` are not present in production Docker images (they are `devDependencies` and are excluded by `npm install --omit=dev`).
+

@@ -3,13 +3,18 @@ const asyncHandler = require('../middleware/asyncHandler')
 const yt = require('../services/youtube')
 const { cacheMiddleware: cache } = require('../middleware/cache')
 const crypto = require('crypto')
-const { Innertube, UniversalCache } = require('youtubei.js')
 const { ProxyAgent } = require('undici')
 const { Readable } = require('stream')
+const fs = require('fs')
+const path = require('path')
+const lunexYtdl = require('../utils/lunex-ytdl')
 
-const APP_SECRET = process.env.LUNEX_APP_SECRET || 'super-secret-lunex-app-key-2026'
+// LNX-2026-034: Убран небезопасный fallback — сервер упадёт при старте если LUNEX_APP_SECRET не задан
+if (!process.env.LUNEX_APP_SECRET) throw new Error('[Plume] Отсутствует обязательная переменная среды: LUNEX_APP_SECRET')
+const APP_SECRET = process.env.LUNEX_APP_SECRET
 
 const router = Router()
+
 
 router.get('/stream', asyncHandler(async (req, res) => {
   const { id, t, sig } = req.query
@@ -29,61 +34,45 @@ router.get('/stream', asyncHandler(async (req, res) => {
   for (let attempt = 1; attempt <= 3; attempt++) {
     const proxyObj = pm.getCountryAwareProxyAgent('youtube')
     const proxyUrl = proxyObj ? proxyObj.url : null
-    // Proxy is used ONLY for YouTube API calls (to bypass geo-restrictions).
-    // The actual CDN stream (googlevideo.com) is fetched directly from the server IP —
-    // proxies often block or throttle HTTPS streaming traffic.
-    const apiDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined
-
-    const fetchFn = async (input, init = {}) => {
-      return fetch(input, { ...init, dispatcher: apiDispatcher })
-    }
-
+    
     try {
-      const youtube = await Innertube.create({
-        cache: new UniversalCache(false),
-        fetch: fetchFn
-      })
+      // 1. Extract URL with lunex-ytdl
+      const streamUrl = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl })
 
-      const info = await youtube.getBasicInfo(id)
-      const format = info.chooseFormat({ type: 'audio', quality: 'best' })
-
-      if (!format) {
-        throw new Error('No audio format found')
+      // 2. Fetch CDN stream directly (googlevideo.com is globally accessible)
+      const reqHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*'
+      }
+      if (req.headers.range) {
+        reqHeaders['Range'] = req.headers.range
       }
 
-      let streamUrl;
-      try {
-        const decipherRes = format.decipher(youtube.session.player);
-        if (decipherRes instanceof Promise) await decipherRes;
-        streamUrl = format.url;
-      } catch (e) {
-        streamUrl = format.url;
-      }
-
-      if (!streamUrl) throw new Error('No stream URL')
-
-      // Fetch CDN stream directly (no proxy) — googlevideo.com is accessible from the server
-      const streamRes = await fetch(streamUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-      })
+      const streamRes = await fetch(streamUrl, { headers: reqHeaders })
       
-      if (!streamRes.ok) {
+      if (!streamRes.ok && streamRes.status !== 206) {
         if (streamRes.status === 403) throw new Error('403 Forbidden from Googlevideo')
         throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
       }
 
       if (proxyUrl) pm.markProxySuccess(proxyUrl)
+      console.log(`[YouTube] Stream OK for ${id}`)
 
-      res.setHeader('Content-Type', format.mime_type || 'audio/mp4')
+      const statusCode = streamRes.status || 200
+      res.status(statusCode)
+      res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mp4')
       res.setHeader('Accept-Ranges', 'bytes')
       if (streamRes.headers.get('content-length')) {
         res.setHeader('Content-Length', streamRes.headers.get('content-length'))
       }
+      if (streamRes.headers.get('content-range')) {
+        res.setHeader('Content-Range', streamRes.headers.get('content-range'))
+      }
       
       if (streamRes.body) {
-        const nodeStream = Readable.fromWeb(streamRes.body)
+        const nodeStream = typeof streamRes.body.pipe === 'function'
+          ? streamRes.body
+          : Readable.fromWeb(streamRes.body)
         nodeStream.pipe(res)
         return // success
       } else {

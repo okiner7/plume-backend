@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "cross-env NODE_ENV=test APP_SECRET=testsecret JWT_SECRET=testjwt BOT_TOKEN=testbot DEV_TELEGRAM_IDS=999999 MONGO_URI=mongodb://127.0.0.1:27017/plume-test REDIS_URL=redis://127.0.0.1:6379 node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
+    "test": "cross-env NODE_ENV=test APP_SECRET=testsecret JWT_SECRET=testjwt LUNEX_APP_SECRET=testlunexsecret BOT_TOKEN=testbot DEV_TELEGRAM_IDS=999999 MONGO_URI=mongodb://127.0.0.1:27017/plume-test REDIS_URL=redis://127.0.0.1:6379 node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit"
   },
   "dependencies": {
     "axios": "^1.7.0",
@@ -28,6 +28,9 @@
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
     "node-cache": "^5.1.2",
+    "playwright": "^1.62.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "telegraf": "^4.16.3",

@@ -56,18 +56,20 @@ function captureLog(type, args) {
   }
 }
 
-console.log = function(...args) {
-  captureLog('INFO', args)
-  originalLog.apply(console, args)
-}
-console.error = function(...args) {
-  captureLog('ERROR', args)
-  originalError.apply(console, args)
+if (process.env.NODE_ENV !== 'test') {
+  console.log = function(...args) {
+    captureLog('INFO', args)
+    originalLog.apply(console, args)
+  }
+  console.error = function(...args) {
+    captureLog('ERROR', args)
+    originalError.apply(console, args)
+  }
 }
 
 // Metrics History for Chart (Only gathered by primary instance to avoid overlaps)
 const isPrimaryWorker = typeof process.env.NODE_APP_INSTANCE === 'undefined' || process.env.NODE_APP_INSTANCE === '0'
-if (isPrimaryWorker) {
+if (isPrimaryWorker && process.env.NODE_ENV !== 'test') {
   const metricsInterval = setInterval(async () => {
     try {
       const memory = process.memoryUsage()
