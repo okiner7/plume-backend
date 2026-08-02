@@ -2,6 +2,7 @@ const { Router } = require('express')
 const { cacheMiddleware: cache } = require('../middleware/cache')
 const asyncHandler = require('../middleware/asyncHandler')
 const sc = require('../services/soundcloud')
+const lunexSc = require('../utils/lunex-sc')
 
 const router = Router()
 
@@ -27,42 +28,27 @@ router.get('/stream', asyncHandler(async (req, res) => {
   let { url, id } = req.query
   if (!url && !id) throw new Error('Stream URL or track ID required')
 
-  if (id) {
+  const targetUrl = url || `https://api.soundcloud.com/tracks/${id}`
+
+  const pm = require('../middleware/proxyManager')
+
+  let lastError
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const proxyObj = pm.getCountryAwareProxyAgent('soundcloud')
+    const proxyUrl = proxyObj ? proxyObj.url : null
+
     try {
-      const trackRes = await sc.requestFull(`/tracks/${id}`)
-    const trackData = trackRes.data
-      const originalAgent = trackRes.config._proxyAgent
-      const authParam = trackData.track_authorization
-      
-      // Нам нужен только progressive (цельный файл), так как HLS-плейлисты проксировать сложнее
-      const unencrypted = trackData?.media?.transcodings?.filter(t => t.format.protocol === 'progressive') || []
-      
-      if (unencrypted.length === 0) {
-        throw new Error('No progressive stream found for track')
-      }
+      // Extract stream URL using mobile-spoofing SoundCloud extractor with dynamic client_id rotation
+      const extraction = await lunexSc.extractTrackStream(targetUrl, { proxy: proxyUrl })
+      const foundUrl = extraction.streamUrl
 
-      const tcPromises = unencrypted.map(tc => {
-        return sc.request(tc.url, authParam ? { track_authorization: authParam } : {}, 1, originalAgent)
-          .then(tcRes => {
-             if (tcRes && tcRes.url) return tcRes.url;
-             throw new Error('No URL returned');
-          });
-      });
+      if (!foundUrl) throw new Error('No valid stream URL extracted')
 
-      let foundUrl = null;
-      if (tcPromises.length > 0) {
-        try {
-          foundUrl = await Promise.any(tcPromises);
-        } catch (e) {
-          console.warn(`[SoundCloud] All transcode requests failed for track ${id}`);
-        }
-      }
+      if (proxyUrl) pm.markProxySuccess(proxyUrl)
+      console.log(`[SoundCloud] Stream OK (${extraction.format}, ${extraction.bitrate}) for ${id || url}`)
 
-      if (!foundUrl) throw new Error('No valid stream found for track')
-
-      // Проксируем поток клиенту, чтобы обойти блокировки SC в РФ
       const reqHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'SoundCloud/2024.05.01-release (Android 14; Mobile; arm64-v8a)',
         'Accept': '*/*'
       }
       if (req.headers.range) {
@@ -70,7 +56,7 @@ router.get('/stream', asyncHandler(async (req, res) => {
       }
 
       const streamRes = await fetch(foundUrl, { headers: reqHeaders })
-      
+
       if (!streamRes.ok && streamRes.status !== 206) {
         throw new Error(`Failed to fetch SC stream: ${streamRes.statusText}`)
       }
@@ -85,56 +71,26 @@ router.get('/stream', asyncHandler(async (req, res) => {
       if (streamRes.headers.get('content-range')) {
         res.setHeader('Content-Range', streamRes.headers.get('content-range'))
       }
-      
+
       if (streamRes.body) {
         const { Readable } = require('stream')
         const nodeStream = typeof streamRes.body.pipe === 'function'
           ? streamRes.body
           : Readable.fromWeb(streamRes.body)
         nodeStream.pipe(res)
-        return // Успешное проксирование
+        return
       } else {
         throw new Error('SC Stream body is empty')
       }
 
     } catch (err) {
-      console.error('[SoundCloud] Stream resolve error:', err.message)
-      throw err
+      if (proxyUrl) pm.markProxyFailed(proxyUrl)
+      console.warn(`[SoundCloud] Stream attempt ${attempt} failed:`, err.message)
+      lastError = err
     }
   }
 
-  // Fallback for when only url is provided (should rarely happen now)
-  try {
-    if (url) {
-      // FIX SSRF: restrict fallback URL to SoundCloud domains
-      const safeUrl = String(url)
-      let parsedUrl;
-      try {
-        parsedUrl = new URL(safeUrl)
-      } catch (e) {
-        throw new Error('Invalid URL format')
-      }
-      
-      if (parsedUrl.hostname !== 'api-v2.soundcloud.com' && parsedUrl.hostname !== 'soundcloud.com') {
-        throw new Error('Invalid SoundCloud URL')
-      }
-      const data = await sc.request(safeUrl)
-      if (data && data.url) {
-        const streamRes = await fetch(data.url)
-        if (!streamRes.ok) throw new Error('Failed to fetch SC stream fallback')
-        res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg')
-        if (streamRes.body) {
-          const { Readable } = require('stream')
-          const nodeStream = typeof streamRes.body.pipe === 'function' ? streamRes.body : Readable.fromWeb(streamRes.body)
-          nodeStream.pipe(res)
-          return
-        }
-      }
-    }
-  } catch (err) {
-    throw err
-  }
-  throw new Error('Failed to extract media URL')
+  throw lastError || new Error('All SoundCloud stream attempts failed')
 }))
 
 router.get('/user', cache(21600), asyncHandler(async (req) => {
