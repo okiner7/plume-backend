@@ -10,6 +10,7 @@ const routes = require('./routes')
 const telegramBot = require('./services/bot/telegramBot')
 const proxyHealth = require('./services/health/proxyHealth')
 const yt = require('./services/youtube')
+const { apiTracker, syncApiStats } = require('./middleware/apiTracker')
 const { initSocketServer } = require('./socket')
 const http3Middleware = require('./middleware/http3')
 
