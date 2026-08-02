@@ -16,7 +16,7 @@ function start() {
     return
   }
 
-  const proxyObj = pm.getCountryAwareProxyAgent('telegram', ['RU'])
+  const proxyObj = pm.getCountryAwareProxyAgent('telegram', ['RU', 'BY'])
   const agent = (proxyObj && proxyObj.agent) ? proxyObj.agent : new https.Agent({ keepAlive: true })
 
   if (proxyObj && proxyObj.url) {
