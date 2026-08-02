@@ -118,6 +118,15 @@ const setStreamCache = async (key, value, duration = 600) => {
   }
   localCache.set(`plume:stream:${key}`, value, duration)
 }
+const deleteStreamCache = async (key) => {
+  if (redis && redis.status === 'ready') {
+    try {
+      await redis.del(`plume:stream:${key}`)
+      return
+    } catch {}
+  }
+  localCache.del(`plume:stream:${key}`)
+}
 
-module.exports = { cacheMiddleware, myCache, redis, getStreamCache, setStreamCache }
+module.exports = { cacheMiddleware, myCache, redis, getStreamCache, setStreamCache, deleteStreamCache }
 

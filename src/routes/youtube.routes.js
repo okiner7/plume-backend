@@ -1,7 +1,7 @@
 const { Router } = require('express')
 const asyncHandler = require('../middleware/asyncHandler')
 const yt = require('../services/youtube')
-const { cacheMiddleware: cache, getStreamCache, setStreamCache } = require('../middleware/cache')
+const { cacheMiddleware: cache, getStreamCache, setStreamCache, deleteStreamCache } = require('../middleware/cache')
 const crypto = require('crypto')
 const { ProxyAgent } = require('undici')
 const { Readable } = require('stream')
@@ -40,51 +40,61 @@ router.get('/stream', asyncHandler(async (req, res) => {
 
   const cacheKey = `yt_${id}`
   let streamUrl = await getStreamCache(cacheKey)
+  let streamRes
 
-  if (!streamUrl) {
-    const pm = require('../middleware/proxyManager')
+  for (let fetchAttempt = 1; fetchAttempt <= 2; fetchAttempt++) {
+    if (!streamUrl) {
+      const pm = require('../middleware/proxyManager')
 
-    let lastError;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      const proxyObj = pm.getCountryAwareProxyAgent('youtube')
-      const proxyUrl = proxyObj ? proxyObj.url : null
-      
-      try {
-        // 1. Extract URL with lunex-ytdl
-        streamUrl = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl })
+      let lastError;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const proxyObj = pm.getCountryAwareProxyAgent('youtube')
+        const proxyUrl = proxyObj ? proxyObj.url : null
+        
+        try {
+          // 1. Extract URL with lunex-ytdl
+          streamUrl = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl })
 
-        if (proxyUrl) pm.markProxySuccess(proxyUrl)
-        console.log(`[YouTube] Stream OK for ${id}`)
-        await setStreamCache(cacheKey, streamUrl, 900) // Cache stream URL for 15 minutes
-        break
+          if (proxyUrl) pm.markProxySuccess(proxyUrl)
+          console.log(`[YouTube] Stream OK for ${id}`)
+          await setStreamCache(cacheKey, streamUrl, 900) // Cache stream URL for 15 minutes
+          break
 
-      } catch (err) {
-        if (proxyUrl) pm.markProxyFailed(proxyUrl)
-        console.warn(`[YouTube] Stream attempt ${attempt} failed (proxy: ${proxyUrl || 'none'}):`, err.message)
-        lastError = err
+        } catch (err) {
+          if (proxyUrl) pm.markProxyFailed(proxyUrl)
+          console.warn(`[YouTube] Stream attempt ${attempt} failed (proxy: ${proxyUrl || 'none'}):`, err.message)
+          lastError = err
+        }
       }
+
+      if (!streamUrl) throw lastError || new Error('All YouTube stream attempts failed')
+    } else {
+      if (fetchAttempt === 1) console.log(`[YouTube] Stream Cache HIT for ${id}`)
     }
 
-    if (!streamUrl) throw lastError || new Error('All YouTube stream attempts failed')
-  } else {
-    console.log(`[YouTube] Stream Cache HIT for ${id}`)
+    // 2. Fetch CDN stream directly (googlevideo.com is globally accessible)
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*'
+    }
+    if (req.headers.range) {
+      reqHeaders['Range'] = req.headers.range
+    }
+
+    streamRes = await fetch(streamUrl, { headers: reqHeaders })
+    
+    if (!streamRes.ok && streamRes.status !== 206) {
+      if (streamRes.status === 403) {
+        console.warn(`[YouTube] 403 Forbidden from CDN, invalidating cache and retrying...`)
+        await deleteStreamCache(cacheKey)
+        streamUrl = null // Force extraction on next attempt
+        continue
+      }
+      throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
+    }
+    
+    break // success
   }
-
-      // 2. Fetch CDN stream directly (googlevideo.com is globally accessible)
-      const reqHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': '*/*'
-      }
-      if (req.headers.range) {
-        reqHeaders['Range'] = req.headers.range
-      }
-
-      const streamRes = await fetch(streamUrl, { headers: reqHeaders })
-      
-      if (!streamRes.ok && streamRes.status !== 206) {
-        if (streamRes.status === 403) throw new Error('403 Forbidden from Googlevideo')
-        throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
-      }
       
 
       const statusCode = streamRes.status || 200

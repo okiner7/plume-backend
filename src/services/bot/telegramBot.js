@@ -4,11 +4,11 @@ const authCodeStore = require('../storage/authCodeStore')
 const NodeCache = require('node-cache')
 
 const https = require('https')
+const pm = require('../../middleware/proxyManager')
 
 const rateLimitCache = new NodeCache({ stdTTL: 5, checkperiod: 5 })
 const loginCooldownCache = new NodeCache({ stdTTL: 300, checkperiod: 60 })
 let bot = null
-const httpsAgent = new https.Agent({ keepAlive: true })
 
 function start() {
   if (!TELEGRAM_BOT_TOKEN) {
@@ -16,7 +16,14 @@ function start() {
     return
   }
 
-  bot = new Telegraf(TELEGRAM_BOT_TOKEN, { telegram: { agent: httpsAgent } })
+  const proxyObj = pm.getCountryAwareProxyAgent('telegram', ['RU'])
+  const agent = (proxyObj && proxyObj.agent) ? proxyObj.agent : new https.Agent({ keepAlive: true })
+
+  if (proxyObj && proxyObj.url) {
+    console.log(`[TG Bot] Using proxy ${proxyObj.url.replace(/:[^:@]+@/, ':***@')}`)
+  }
+
+  bot = new Telegraf(TELEGRAM_BOT_TOKEN, { telegram: { agent } })
 
   // Anti-spam middleware for Telegram Bot
   bot.use((ctx, next) => {
