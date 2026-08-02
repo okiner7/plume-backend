@@ -26,7 +26,7 @@ try {
 } catch (e) {}
 
 /**
- * Custom fetch wrapper supporting proxies
+ * Custom fetch wrapper supporting proxies with automatic fallback on network/dispatcher failure
  */
 async function makeFetch(url, options = {}) {
   const proxyUrl = options.proxy !== undefined ? options.proxy : (process.env.HTTPS_PROXY || process.env.HTTP_PROXY);
@@ -41,7 +41,20 @@ async function makeFetch(url, options = {}) {
     fetchOptions.dispatcher = globalUndiciDispatcher;
   }
 
-  return await fetch(url, fetchOptions);
+  try {
+    return await fetch(url, fetchOptions);
+  } catch (err) {
+    // If request failed with custom dispatcher/proxy, retry once with standard native fetch
+    if (fetchOptions.dispatcher) {
+      delete fetchOptions.dispatcher;
+      try {
+        return await fetch(url, fetchOptions);
+      } catch (fallbackErr) {
+        throw fallbackErr;
+      }
+    }
+    throw err;
+  }
 }
 
 /**
@@ -353,7 +366,15 @@ class SoundCloudExtractor {
       let clientId = options.clientId || await this.clientIdManager.getClientId(fetchOptions);
 
       try {
-        const resolveUrl = `https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(trackUrl)}&client_id=${clientId}&client_type=${clientType}&app_version=${appVersion}&app_locale=en`;
+        let resolveUrl;
+        if (/^\d+$/.test(trackUrl.trim())) {
+          resolveUrl = `https://api-v2.soundcloud.com/tracks/${trackUrl.trim()}?client_id=${clientId}&client_type=${clientType}&app_version=${appVersion}&app_locale=en`;
+        } else if (trackUrl.includes('api.soundcloud.com/tracks/')) {
+          const trackId = trackUrl.split('tracks/')[1]?.split('?')[0]?.split('/')[0];
+          resolveUrl = `https://api-v2.soundcloud.com/tracks/${trackId}?client_id=${clientId}&client_type=${clientType}&app_version=${appVersion}&app_locale=en`;
+        } else {
+          resolveUrl = `https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(trackUrl)}&client_id=${clientId}&client_type=${clientType}&app_version=${appVersion}&app_locale=en`;
+        }
         const resolveRes = await makeFetch(resolveUrl, {
           headers: {
             'User-Agent': fetchOptions.userAgent,
