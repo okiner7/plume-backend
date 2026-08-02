@@ -77,6 +77,12 @@ router.get('/stream', asyncHandler(async (req, res) => {
         const nodeStream = typeof streamRes.body.pipe === 'function'
           ? streamRes.body
           : Readable.fromWeb(streamRes.body)
+
+        res.on('close', () => {
+          if (typeof nodeStream.destroy === 'function') nodeStream.destroy()
+        })
+        nodeStream.on('error', () => {})
+
         nodeStream.pipe(res)
         return
       } else {

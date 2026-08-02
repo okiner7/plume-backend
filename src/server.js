@@ -124,20 +124,26 @@ app.use(routes)
 
 app.use((err, req, res, next) => {
   const status = err.status || err.statusCode || (err.name === 'AppError' || err.name === 'ZodError' ? 400 : 500)
-  console.error('[ERROR]:', err.message)
+  const safeMessage = typeof err.message === 'string' ? err.message : String(err.message || 'Internal server error')
+  console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, safeMessage)
 
   // Send Telegram alert for unexpected server errors (5xx only, not 4xx client errors)
   if (status >= 500) {
     const alertMsg = [
       `❌ *Server Error ${status}*`,
       `Route: \`${req.method} ${req.originalUrl}\``,
-      `Message: ${err.message || 'Internal server error'}`,
-      err.stack ? `\`\`\`\n${err.stack.slice(0, 600)}\n\`\`\`` : ''
+      `Message: ${safeMessage.slice(0, 300)}`,
+      err.stack ? `\`\`\`\n${String(err.stack).slice(0, 600)}\n\`\`\`` : ''
     ].filter(Boolean).join('\n')
     telegramBot.sendAdminAlert(alertMsg).catch(() => {})
   }
 
-  res.status(status).json({ success: false, error: err.message || 'Internal server error' })
+  // Prevent ERR_HTTP_HEADERS_SENT if audio streaming headers were already sent to client
+  if (res.headersSent) {
+    return next(err)
+  }
+
+  res.status(status).json({ success: false, error: safeMessage })
 })
 
 if (require.main === module) {
