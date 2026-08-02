@@ -11,9 +11,12 @@ const telegramBot = require('./services/bot/telegramBot')
 const proxyHealth = require('./services/health/proxyHealth')
 const yt = require('./services/youtube')
 const { apiTracker, syncApiStats } = require('./middleware/apiTracker')
-const { initSocketServer } = require('./socket')
+const http3Middleware = require('./middleware/http3')
 
 const app = express()
+
+// HTTP/3 (QUIC) & WebTransport Alt-Svc negotiation
+app.use(http3Middleware)
 
 // Доверяем Nginx и Cloudflare (читаем реальные IP-адреса пользователей)
 app.set('trust proxy', true)

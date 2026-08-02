@@ -1,0 +1,20 @@
+# Caddyfile - Automatic HTTP/3 (QUIC) & Reverse Proxy Configuration for lunex-backendv2
+
+api.plumeoff.ru {
+    # Automatic HTTP/3 (QUIC over UDP 443) and HTTP/2 over TLS 1.3
+    protocols h1 h2 h3
+
+    # Reverse proxy to Node.js backend
+    reverse_proxy 127.0.0.1:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security & CORS Headers for HTTP/3 & Audio Streaming
+    header {
+        Alt-Svc 'h3=":443"; ma=86400; persist=1'
+        Access-Control-Expose-Headers 'Alt-Svc, Content-Range, Accept-Ranges, Content-Length'
+    }
+}
