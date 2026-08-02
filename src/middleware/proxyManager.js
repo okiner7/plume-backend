@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const { HttpsProxyAgent } = require('https-proxy-agent')
 const axios = require('axios')
+const { redis } = require('./cache')
 
 // ─── Proxy Pool Manager ────────────────────────────────────────────────────────
 // Поддерживает несколько форматов в proxies.txt:
@@ -26,10 +27,51 @@ class ProxyPool {
     this._stopRequested = false
     this._lastAlertSentAt = 0
     this.watcher = null
+
+    // Setup Redis Subscriber for PM2 Cluster State Syncing
+    if (redis) {
+      this.redisSub = redis.duplicate()
+      this.redisSub.subscribe('plume:proxy_updates', (err) => {
+        if (err) console.error('[ProxyPool] Failed to subscribe to Redis updates:', err.message)
+      })
+      this.redisSub.on('message', (channel, message) => {
+        if (channel === 'plume:proxy_updates') {
+          try {
+            const data = JSON.parse(message)
+            const p = this.proxies.find(x => x.url === data.url)
+            if (p) {
+              p.fails = data.fails ?? p.fails
+              p.cooldownUntil = data.cooldownUntil ?? p.cooldownUntil
+              p.isOffline = data.isOffline ?? p.isOffline
+              if (data.latencyMap) p.latencyMap = data.latencyMap
+              if (data.lastPing) p.lastPing = data.lastPing
+              if (data.latency !== undefined) p.latency = data.latency
+            }
+          } catch (e) {
+            console.error('[ProxyPool] Failed to parse Redis message:', e.message)
+          }
+        }
+      })
+    }
+
     this._load()
     this._watchFile()
     if (process.env.NODE_ENV !== 'test') {
       this.startPingLoop()
+    }
+  }
+
+  _broadcastUpdate(proxy) {
+    if (redis && redis.status === 'ready') {
+      redis.publish('plume:proxy_updates', JSON.stringify({
+        url: proxy.url,
+        fails: proxy.fails,
+        cooldownUntil: proxy.cooldownUntil,
+        isOffline: proxy.isOffline,
+        latencyMap: proxy.latencyMap,
+        lastPing: proxy.lastPing,
+        latency: proxy.latency
+      }))
     }
   }
 
@@ -175,6 +217,7 @@ class ProxyPool {
       proxy.isOffline = false
     }
 
+    this._broadcastUpdate(proxy)
     // console.log(`[ProxyPool] Latency update for ${proxy.url.replace(/:[^:@]+@/, ':***@')} [${s}]: ${newLatency}ms (EMA alpha=0.7)`)
     return proxy
   }
@@ -257,6 +300,13 @@ class ProxyPool {
 
   startPingLoop(intervalMs = 20000) {
     if (this.pingInterval) return
+    
+    // Cluster mode isolation: only master runs the ping loop
+    if (process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== '0') {
+      console.log(`[ProxyPool] Worker ${process.env.NODE_APP_INSTANCE} skipping ping loop (master only)`)
+      return
+    }
+
     this._stopRequested = false
     this._isPinging = true
     this._pingAll().catch(err => console.warn('[ProxyPool] Background ping error:', err.message))
@@ -291,6 +341,12 @@ class ProxyPool {
         this.watcher.close()
       } catch {}
       this.watcher = null
+    }
+    if (this.redisSub) {
+      try {
+        this.redisSub.quit()
+      } catch {}
+      this.redisSub = null
     }
   }
 
@@ -396,6 +452,7 @@ class ProxyPool {
         }
       }
     }
+    this._broadcastUpdate(proxy)
   }
 
   markOffline(agentOrUrl) {
@@ -404,13 +461,17 @@ class ProxyPool {
     if (proxy && !proxy.isOffline) {
       proxy.isOffline = true
       console.warn(`[ProxyPool] Proxy ${proxy.url.replace(/:[^:@]+@/, ':***@')} → OFFLINE`)
+      this._broadcastUpdate(proxy)
     }
   }
 
   markOnline(agentOrUrl) {
     const proxy = this._findProxy(agentOrUrl)
       
-    if (proxy) proxy.isOffline = false
+    if (proxy && proxy.isOffline) {
+      proxy.isOffline = false
+      this._broadcastUpdate(proxy)
+    }
   }
 
   // Вызвать при успешном запросе
@@ -418,8 +479,10 @@ class ProxyPool {
     const proxy = this._findProxy(agentOrUrl)
       
     if (proxy) {
+      const changed = proxy.fails !== 0 || proxy.isOffline !== false
       proxy.fails = 0
       proxy.isOffline = false
+      if (changed) this._broadcastUpdate(proxy)
     }
   }
 
