@@ -98,5 +98,26 @@ const myCache = {
   }
 }
 
-module.exports = { cacheMiddleware, myCache, redis }
+const getStreamCache = async (key) => {
+  if (redis && redis.status === 'ready') {
+    try {
+      return await redis.get(`plume:stream:${key}`)
+    } catch {
+      return null
+    }
+  }
+  return localCache.get(`plume:stream:${key}`) || null
+}
+
+const setStreamCache = async (key, value, duration = 600) => {
+  if (redis && redis.status === 'ready') {
+    try {
+      await redis.setex(`plume:stream:${key}`, duration, value)
+      return
+    } catch {}
+  }
+  localCache.set(`plume:stream:${key}`, value, duration)
+}
+
+module.exports = { cacheMiddleware, myCache, redis, getStreamCache, setStreamCache }
 

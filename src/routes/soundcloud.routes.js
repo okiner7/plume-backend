@@ -1,5 +1,5 @@
 const { Router } = require('express')
-const { cacheMiddleware: cache } = require('../middleware/cache')
+const { cacheMiddleware: cache, getStreamCache, setStreamCache } = require('../middleware/cache')
 const asyncHandler = require('../middleware/asyncHandler')
 const sc = require('../services/soundcloud')
 const lunexSc = require('../utils/lunex-sc')
@@ -29,23 +29,41 @@ router.get('/stream', asyncHandler(async (req, res) => {
   if (!url && !id) throw new Error('Stream URL or track ID required')
 
   const targetUrl = url || `https://api.soundcloud.com/tracks/${id}`
+  const cacheKey = `sc_${id || url}`
 
-  const pm = require('../middleware/proxyManager')
+  let foundUrl = await getStreamCache(cacheKey)
 
-  let lastError
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const proxyObj = pm.getCountryAwareProxyAgent('soundcloud')
-    const proxyUrl = proxyObj ? proxyObj.url : null
+  if (!foundUrl) {
+    const pm = require('../middleware/proxyManager')
 
-    try {
-      // Extract stream URL using mobile-spoofing SoundCloud extractor with dynamic client_id rotation
-      const extraction = await lunexSc.extractTrackStream(targetUrl, { proxy: proxyUrl })
-      const foundUrl = extraction.streamUrl
+    let lastError
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const proxyObj = pm.getCountryAwareProxyAgent('soundcloud')
+      const proxyUrl = proxyObj ? proxyObj.url : null
 
-      if (!foundUrl) throw new Error('No valid stream URL extracted')
+      try {
+        // Extract stream URL using mobile-spoofing SoundCloud extractor with dynamic client_id rotation
+        const extraction = await lunexSc.extractTrackStream(targetUrl, { proxy: proxyUrl })
+        foundUrl = extraction.streamUrl
 
-      if (proxyUrl) pm.markProxySuccess(proxyUrl)
-      console.log(`[SoundCloud] Stream OK (${extraction.format}, ${extraction.bitrate}) for ${id || url}`)
+        if (!foundUrl) throw new Error('No valid stream URL extracted')
+
+        if (proxyUrl) pm.markProxySuccess(proxyUrl)
+        console.log(`[SoundCloud] Stream OK (${extraction.format}, ${extraction.bitrate}) for ${id || url}`)
+        await setStreamCache(cacheKey, foundUrl, 900) // Cache stream URL for 15 minutes
+        break
+
+      } catch (err) {
+        if (proxyUrl) pm.markProxyFailed(proxyUrl)
+        console.warn(`[SoundCloud] Stream attempt ${attempt} failed:`, err.message)
+        lastError = err
+      }
+    }
+
+    if (!foundUrl) throw lastError || new Error('All SoundCloud stream attempts failed')
+  } else {
+    console.log(`[SoundCloud] Stream Cache HIT for ${id || url}`)
+  }
 
       const reqHeaders = {
         'User-Agent': 'SoundCloud/2024.05.01-release (Android 14; Mobile; arm64-v8a)',

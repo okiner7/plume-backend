@@ -1,7 +1,7 @@
 const { Router } = require('express')
 const asyncHandler = require('../middleware/asyncHandler')
 const yt = require('../services/youtube')
-const { cacheMiddleware: cache } = require('../middleware/cache')
+const { cacheMiddleware: cache, getStreamCache, setStreamCache } = require('../middleware/cache')
 const crypto = require('crypto')
 const { ProxyAgent } = require('undici')
 const { Readable } = require('stream')
@@ -38,16 +38,37 @@ router.get('/stream', asyncHandler(async (req, res) => {
     return
   }
 
-  const pm = require('../middleware/proxyManager')
+  const cacheKey = `yt_${id}`
+  let streamUrl = await getStreamCache(cacheKey)
 
-  let lastError;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const proxyObj = pm.getCountryAwareProxyAgent('youtube')
-    const proxyUrl = proxyObj ? proxyObj.url : null
-    
-    try {
-      // 1. Extract URL with lunex-ytdl
-      const streamUrl = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl })
+  if (!streamUrl) {
+    const pm = require('../middleware/proxyManager')
+
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const proxyObj = pm.getCountryAwareProxyAgent('youtube')
+      const proxyUrl = proxyObj ? proxyObj.url : null
+      
+      try {
+        // 1. Extract URL with lunex-ytdl
+        streamUrl = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl })
+
+        if (proxyUrl) pm.markProxySuccess(proxyUrl)
+        console.log(`[YouTube] Stream OK for ${id}`)
+        await setStreamCache(cacheKey, streamUrl, 900) // Cache stream URL for 15 minutes
+        break
+
+      } catch (err) {
+        if (proxyUrl) pm.markProxyFailed(proxyUrl)
+        console.warn(`[YouTube] Stream attempt ${attempt} failed (proxy: ${proxyUrl || 'none'}):`, err.message)
+        lastError = err
+      }
+    }
+
+    if (!streamUrl) throw lastError || new Error('All YouTube stream attempts failed')
+  } else {
+    console.log(`[YouTube] Stream Cache HIT for ${id}`)
+  }
 
       // 2. Fetch CDN stream directly (googlevideo.com is globally accessible)
       const reqHeaders = {
