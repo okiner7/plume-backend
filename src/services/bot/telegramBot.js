@@ -4,7 +4,6 @@ const authCodeStore = require('../storage/authCodeStore')
 const NodeCache = require('node-cache')
 
 const https = require('https')
-const pm = require('../../middleware/proxyManager')
 
 const rateLimitCache = new NodeCache({ stdTTL: 5, checkperiod: 5 })
 const loginCooldownCache = new NodeCache({ stdTTL: 300, checkperiod: 60 })
@@ -16,14 +15,10 @@ function start() {
     return
   }
 
-  const proxyObj = pm.getCountryAwareProxyAgent('telegram', ['RU', 'BY'])
-  const agent = (proxyObj && proxyObj.agent) ? proxyObj.agent : new https.Agent({ keepAlive: true })
-
-  if (proxyObj && proxyObj.url) {
-    console.log(`[TG Bot] Using proxy ${proxyObj.url.replace(/:[^:@]+@/, ':***@')}`)
-  }
-
-  bot = new Telegraf(TELEGRAM_BOT_TOKEN, { telegram: { agent } })
+  // LNX-2026-035: Убрали кастомный https.Agent с keepAlive: true, 
+  // т.к. из-за него отваливались сокеты по таймауту (ECONNRESET).
+  // Прокси тоже не нужен, если сервер физически не в РФ.
+  bot = new Telegraf(TELEGRAM_BOT_TOKEN)
 
   // Anti-spam middleware for Telegram Bot
   bot.use((ctx, next) => {
