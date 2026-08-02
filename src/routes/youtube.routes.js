@@ -85,9 +85,7 @@ router.get('/stream', asyncHandler(async (req, res) => {
         if (streamRes.status === 403) throw new Error('403 Forbidden from Googlevideo')
         throw new Error(`Failed to fetch media stream: ${streamRes.statusText}`)
       }
-
-      if (proxyUrl) pm.markProxySuccess(proxyUrl)
-      console.log(`[YouTube] Stream OK for ${id}`)
+      
 
       const statusCode = streamRes.status || 200
       res.status(statusCode)
@@ -115,15 +113,6 @@ router.get('/stream', asyncHandler(async (req, res) => {
       } else {
         throw new Error('Stream body is empty')
       }
-
-    } catch (err) {
-      if (proxyUrl) pm.markProxyFailed(proxyUrl)
-      console.warn(`[YouTube] Stream attempt ${attempt} failed (proxy: ${proxyUrl || 'none'}):`, err.message)
-      lastError = err
-    }
-  }
-
-  throw lastError || new Error('All attempts failed')
 }))
 
 

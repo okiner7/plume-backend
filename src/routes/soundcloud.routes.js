@@ -106,16 +106,8 @@ router.get('/stream', asyncHandler(async (req, res) => {
       } else {
         throw new Error('SC Stream body is empty')
       }
-
-    } catch (err) {
-      if (proxyUrl) pm.markProxyFailed(proxyUrl)
-      console.warn(`[SoundCloud] Stream attempt ${attempt} failed:`, err.message)
-      lastError = err
-    }
-  }
-
-  throw lastError || new Error('All SoundCloud stream attempts failed')
 }))
+
 
 router.get('/user', cache(21600), asyncHandler(async (req) => {
   const { url } = req.query
