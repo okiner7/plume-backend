@@ -473,7 +473,7 @@ async function tryAndroidVrStrategy(videoId, dispatcher, visitorData) {
             videoId,
             racyCheckOk: true,
             contentCheckOk: true,
-            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660 } }
+            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660, audioQuality: 'HIGH' } }
         }),
         dispatcher,
         signal: AbortSignal.timeout(4000)
@@ -544,7 +544,7 @@ async function tryIosStrategy(videoId, dispatcher, visitorData) {
             videoId,
             racyCheckOk: true,
             contentCheckOk: true,
-            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660 } }
+            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660, audioQuality: 'HIGH' } }
         }),
         dispatcher,
         signal: AbortSignal.timeout(4000)
@@ -616,7 +616,7 @@ async function tryAndroidMusicStrategy(videoId, dispatcher, visitorData) {
             videoId,
             racyCheckOk: true,
             contentCheckOk: true,
-            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660 } }
+            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660, audioQuality: 'HIGH' } }
         }),
         dispatcher,
         signal: AbortSignal.timeout(4000)
@@ -682,7 +682,8 @@ async function tryTvHtml5Strategy(videoId, dispatcher, visitorData) {
             context: { client: clientPayload, user: { lockedSafetyMode: false } },
             videoId,
             racyCheckOk: true,
-            contentCheckOk: true
+            contentCheckOk: true,
+            playbackContext: { contentPlaybackContext: { signatureTimestamp: 20660, audioQuality: 'HIGH' } }
         }),
         dispatcher,
         signal: AbortSignal.timeout(4000)
@@ -754,7 +755,8 @@ async function tryWebDecipherStrategy(videoId, dispatcher, visitorData) {
             playbackContext: {
                 contentPlaybackContext: {
                     signatureTimestamp: 20660,
-                    html5Preference: 'HTML5_PREF_WANTS'
+                    html5Preference: 'HTML5_PREF_WANTS',
+                    audioQuality: 'HIGH'
                 }
             }
         }),
@@ -855,13 +857,40 @@ async function runPlaywrightInterception(videoId, playwrightProxy, timeout = 150
 
         return await new Promise(async (resolve, reject) => {
             let resolved = false;
+            const audioCandidates = [];
+            let collectTimer = null;
+
+            const finishAndResolve = (selectedCandidate) => {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(timer);
+                if (collectTimer) clearTimeout(collectTimer);
+                resolve(selectedCandidate);
+            };
 
             const timer = setTimeout(() => {
                 if (!resolved) {
-                    resolved = true;
-                    reject(new Error('Playwright request interception timed out'));
+                    if (audioCandidates.length > 0) {
+                        finishAndResolve(pickBestCandidate(audioCandidates));
+                    } else {
+                        resolved = true;
+                        reject(new Error('Playwright request interception timed out'));
+                    }
                 }
             }, timeout);
+
+            function pickBestCandidate(candidates) {
+                const ITAG_PRIORITY_ORDER = [141, 256, 251, 171, 140, 250, 249];
+                candidates.sort((a, b) => {
+                    const idxA = ITAG_PRIORITY_ORDER.indexOf(a.itag);
+                    const idxB = ITAG_PRIORITY_ORDER.indexOf(b.itag);
+                    const rankA = idxA !== -1 ? idxA : 999;
+                    const rankB = idxB !== -1 ? idxB : 999;
+                    if (rankA !== rankB) return rankA - rankB;
+                    return b.bitrate - a.bitrate;
+                });
+                return candidates[0];
+            }
 
             page.on('request', req => {
                 try {
@@ -870,19 +899,53 @@ async function runPlaywrightInterception(videoId, playwrightProxy, timeout = 150
                         // Prefer audio-only streams (mime=audio), skip video/mp4 combined streams
                         const isAudio = url.includes('mime=audio') || url.includes('mime%3Daudio');
                         const isVideo = url.includes('mime=video') || url.includes('mime%3Dvideo');
-                        if (!resolved && (isAudio || (!isVideo && url.includes('videoplayback')))) {
-                            resolved = true;
-                            clearTimeout(timer);
-                            // Try to parse itag from URL
+                        if (isAudio || (!isVideo && url.includes('videoplayback'))) {
                             const itagMatch = url.match(/[?&]itag=(\d+)/);
                             const itag = itagMatch ? parseInt(itagMatch[1]) : 251;
-                            resolve({
-                                url,
-                                itag,
-                                bitrate: itag === 251 ? 160000 : 128000,
-                                mimeType: itag === 251 ? 'audio/webm; codecs="opus"' : 'audio/mp4; codecs="mp4a.40.2"',
-                                audioQuality: 'AUDIO_QUALITY_MEDIUM'
-                            });
+                            
+                            let bitrate = 128000;
+                            let mimeType = 'audio/mp4; codecs="mp4a.40.2"';
+                            let audioQuality = 'AUDIO_QUALITY_MEDIUM';
+                            
+                            if (itag === 141 || itag === 256) {
+                                bitrate = 256000;
+                                mimeType = 'audio/mp4; codecs="mp4a.40.2"';
+                                audioQuality = 'AUDIO_QUALITY_HIGH';
+                            } else if (itag === 251) {
+                                bitrate = 160000;
+                                mimeType = 'audio/webm; codecs="opus"';
+                                audioQuality = 'AUDIO_QUALITY_HIGH';
+                            } else if (itag === 171) {
+                                bitrate = 128000;
+                                mimeType = 'audio/webm; codecs="opus"';
+                            } else if (itag === 250) {
+                                bitrate = 70000;
+                                mimeType = 'audio/webm; codecs="opus"';
+                                audioQuality = 'AUDIO_QUALITY_LOW';
+                            } else if (itag === 249) {
+                                bitrate = 50000;
+                                mimeType = 'audio/webm; codecs="opus"';
+                                audioQuality = 'AUDIO_QUALITY_LOW';
+                            }
+
+                            const candidate = { url, itag, bitrate, mimeType, audioQuality };
+
+                            // High-quality ITAGs (141, 256, 251) — resolve immediately!
+                            if ([141, 256, 251].includes(itag)) {
+                                finishAndResolve(candidate);
+                                return;
+                            }
+
+                            audioCandidates.push(candidate);
+
+                            // Give a short delay (800ms) to collect higher quality candidate if available
+                            if (!collectTimer && !resolved) {
+                                collectTimer = setTimeout(() => {
+                                    if (!resolved && audioCandidates.length > 0) {
+                                        finishAndResolve(pickBestCandidate(audioCandidates));
+                                    }
+                                }, 800);
+                            }
                         }
                     }
                 } catch (e) {}
@@ -895,9 +958,13 @@ async function runPlaywrightInterception(videoId, playwrightProxy, timeout = 150
                 });
             } catch (e) {
                 if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timer);
-                    reject(e);
+                    if (audioCandidates.length > 0) {
+                        finishAndResolve(pickBestCandidate(audioCandidates));
+                    } else {
+                        resolved = true;
+                        clearTimeout(timer);
+                        reject(e);
+                    }
                 }
             }
         });

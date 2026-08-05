@@ -54,7 +54,26 @@ router.get('/stream', asyncHandler(async (req, res) => {
   const targetUrl = url || `https://api.soundcloud.com/tracks/${id}`
   const cacheKey = `sc_${id || url}`
 
-  let foundUrl = await getStreamCache(cacheKey)
+  let cachedData = await getStreamCache(cacheKey)
+  let foundUrl = null
+  let audioBitrate = '256'
+  let audioCodec = 'aac'
+
+  if (cachedData) {
+    try {
+      const parsed = typeof cachedData === 'string' ? JSON.parse(cachedData) : cachedData
+      if (parsed && parsed.url) {
+        foundUrl = parsed.url
+        audioBitrate = String(parsed.bitrate || '256')
+        audioCodec = String(parsed.codec || 'aac')
+      } else if (typeof cachedData === 'string') {
+        foundUrl = cachedData
+      }
+    } catch (e) {
+      foundUrl = typeof cachedData === 'string' ? cachedData : null
+    }
+  }
+
   let streamRes
 
   for (let fetchAttempt = 1; fetchAttempt <= 2; fetchAttempt++) {
@@ -73,9 +92,21 @@ router.get('/stream', asyncHandler(async (req, res) => {
 
           if (!foundUrl) throw new Error('No valid stream URL extracted')
 
+          const rawBitrate = extraction.bitrate || '256k'
+          audioBitrate = String(rawBitrate).replace('k', '')
+          const formatStr = (extraction.format || '').toLowerCase()
+          const presetStr = (extraction.selectedTranscoding?.preset || '').toLowerCase()
+          if (formatStr.includes('opus') || presetStr.includes('opus')) {
+            audioCodec = 'opus'
+          } else if (formatStr.includes('mp3') || presetStr.includes('mp3')) {
+            audioCodec = 'mp3'
+          } else {
+            audioCodec = 'aac'
+          }
+
           if (proxyUrl) pm.markProxySuccess(proxyUrl)
-          console.log(`[SoundCloud] Stream OK (${extraction.format}, ${extraction.bitrate}) for ${id || url}`)
-          await setStreamCache(cacheKey, foundUrl, 900) // Cache stream URL for 15 minutes
+          console.log(`[SoundCloud] Stream OK (${audioCodec}, ${audioBitrate}k) for ${id || url}`)
+          await setStreamCache(cacheKey, JSON.stringify({ url: foundUrl, bitrate: audioBitrate, codec: audioCodec }), 900) // Cache stream URL for 15 minutes
           break
 
         } catch (err) {
@@ -113,33 +144,40 @@ router.get('/stream', asyncHandler(async (req, res) => {
     break // success
   }
 
-      const statusCode = streamRes.status || 200
-      res.status(statusCode)
-      res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg')
-      res.setHeader('Accept-Ranges', 'bytes')
-      if (streamRes.headers.get('content-length')) {
-        res.setHeader('Content-Length', streamRes.headers.get('content-length'))
-      }
-      if (streamRes.headers.get('content-range')) {
-        res.setHeader('Content-Range', streamRes.headers.get('content-range'))
-      }
+  const statusCode = streamRes.status || 200
+  res.status(statusCode)
+  res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg')
+  res.setHeader('Accept-Ranges', 'bytes')
+  res.setHeader('X-Audio-Bitrate', audioBitrate)
+  res.setHeader('X-Audio-Codec', audioCodec)
+  if (streamRes.headers.get('content-length')) {
+    res.setHeader('Content-Length', streamRes.headers.get('content-length'))
+  }
+  if (streamRes.headers.get('content-range')) {
+    res.setHeader('Content-Range', streamRes.headers.get('content-range'))
+  }
 
-      if (streamRes.body) {
-        const { Readable } = require('stream')
-        const nodeStream = typeof streamRes.body.pipe === 'function'
-          ? streamRes.body
-          : Readable.fromWeb(streamRes.body)
+  if (req.method === 'HEAD') {
+    res.end()
+    return
+  }
 
-        res.on('close', () => {
-          if (typeof nodeStream.destroy === 'function') nodeStream.destroy()
-        })
-        nodeStream.on('error', () => {})
+  if (streamRes.body) {
+    const { Readable } = require('stream')
+    const nodeStream = typeof streamRes.body.pipe === 'function'
+      ? streamRes.body
+      : Readable.fromWeb(streamRes.body)
 
-        nodeStream.pipe(res)
-        return
-      } else {
-        throw new Error('SC Stream body is empty')
-      }
+    res.on('close', () => {
+      if (typeof nodeStream.destroy === 'function') nodeStream.destroy()
+    })
+    nodeStream.on('error', () => {})
+
+    nodeStream.pipe(res)
+    return
+  } else {
+    throw new Error('SC Stream body is empty')
+  }
 }))
 
 

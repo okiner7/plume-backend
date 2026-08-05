@@ -39,7 +39,26 @@ router.get('/stream', asyncHandler(async (req, res) => {
   }
 
   const cacheKey = `yt_${id}`
-  let streamUrl = await getStreamCache(cacheKey)
+  let cachedData = await getStreamCache(cacheKey)
+  let streamUrl = null
+  let audioBitrate = '256'
+  let audioCodec = 'aac'
+
+  if (cachedData) {
+    try {
+      const parsed = typeof cachedData === 'string' ? JSON.parse(cachedData) : cachedData
+      if (parsed && parsed.url) {
+        streamUrl = parsed.url
+        audioBitrate = String(parsed.bitrate || '256')
+        audioCodec = String(parsed.codec || 'aac')
+      } else if (typeof cachedData === 'string') {
+        streamUrl = cachedData
+      }
+    } catch (e) {
+      streamUrl = typeof cachedData === 'string' ? cachedData : null
+    }
+  }
+
   let streamRes
 
   for (let fetchAttempt = 1; fetchAttempt <= 2; fetchAttempt++) {
@@ -53,11 +72,18 @@ router.get('/stream', asyncHandler(async (req, res) => {
         
         try {
           // 1. Extract URL with lunex-ytdl
-          streamUrl = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl })
+          const extraction = await lunexYtdl.getStreamUrl(id, { proxy: proxyUrl, returnObject: true })
+          const rawUrl = typeof extraction === 'string' ? extraction : extraction.url
+          const rawBitrate = typeof extraction === 'object' && extraction.bitrate ? extraction.bitrate : 256000
+          const rawCodec = typeof extraction === 'object' && extraction.codec ? extraction.codec : 'aac'
+
+          streamUrl = rawUrl
+          audioBitrate = String(rawBitrate >= 1000 ? Math.round(rawBitrate / 1000) : rawBitrate)
+          audioCodec = rawCodec.includes('opus') ? 'opus' : (rawCodec.includes('mp3') ? 'mp3' : 'aac')
 
           if (proxyUrl) pm.markProxySuccess(proxyUrl)
-          console.log(`[YouTube] Stream OK for ${id}`)
-          await setStreamCache(cacheKey, streamUrl, 900) // Cache stream URL for 15 minutes
+          console.log(`[YouTube] Stream OK (${audioCodec}, ${audioBitrate}k) for ${id}`)
+          await setStreamCache(cacheKey, JSON.stringify({ url: streamUrl, bitrate: audioBitrate, codec: audioCodec }), 900) // Cache stream URL for 15 minutes
           break
 
         } catch (err) {
@@ -97,32 +123,39 @@ router.get('/stream', asyncHandler(async (req, res) => {
   }
       
 
-      const statusCode = streamRes.status || 200
-      res.status(statusCode)
-      res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mp4')
-      res.setHeader('Accept-Ranges', 'bytes')
-      if (streamRes.headers.get('content-length')) {
-        res.setHeader('Content-Length', streamRes.headers.get('content-length'))
-      }
-      if (streamRes.headers.get('content-range')) {
-        res.setHeader('Content-Range', streamRes.headers.get('content-range'))
-      }
-      
-      if (streamRes.body) {
-        const nodeStream = typeof streamRes.body.pipe === 'function'
-          ? streamRes.body
-          : Readable.fromWeb(streamRes.body)
+  const statusCode = streamRes.status || 200
+  res.status(statusCode)
+  res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mp4')
+  res.setHeader('Accept-Ranges', 'bytes')
+  res.setHeader('X-Audio-Bitrate', audioBitrate)
+  res.setHeader('X-Audio-Codec', audioCodec)
+  if (streamRes.headers.get('content-length')) {
+    res.setHeader('Content-Length', streamRes.headers.get('content-length'))
+  }
+  if (streamRes.headers.get('content-range')) {
+    res.setHeader('Content-Range', streamRes.headers.get('content-range'))
+  }
 
-        res.on('close', () => {
-          if (typeof nodeStream.destroy === 'function') nodeStream.destroy()
-        })
-        nodeStream.on('error', () => {})
+  if (req.method === 'HEAD') {
+    res.end()
+    return
+  }
+  
+  if (streamRes.body) {
+    const nodeStream = typeof streamRes.body.pipe === 'function'
+      ? streamRes.body
+      : Readable.fromWeb(streamRes.body)
 
-        nodeStream.pipe(res)
-        return // success
-      } else {
-        throw new Error('Stream body is empty')
-      }
+    res.on('close', () => {
+      if (typeof nodeStream.destroy === 'function') nodeStream.destroy()
+    })
+    nodeStream.on('error', () => {})
+
+    nodeStream.pipe(res)
+    return // success
+  } else {
+    throw new Error('Stream body is empty')
+  }
 }))
 
 

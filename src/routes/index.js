@@ -15,8 +15,10 @@ const userStore = require('../services/storage/userStore')
 const proxyHealth = require('../services/health/proxyHealth')
 const { getProxyStats } = require('../middleware/proxyManager')
 const adminAuth = require('../middleware/adminAuth')
+const imageProxyMiddleware = require('../middleware/imageProxy')
 
 const router = Router()
+
 
 router.get('/', (req, res) => res.json({ status: 'ok', service: 'Plume API' }))
 
@@ -68,12 +70,12 @@ router.get('/api/status', adminAuth, async (req, res) => {
     })
 })
 
-router.use('/api/yt', youtubeRoutes)
-router.use('/api/sc', soundcloudRoutes)
+router.use('/api/yt', imageProxyMiddleware, youtubeRoutes)
+router.use('/api/sc', imageProxyMiddleware, soundcloudRoutes)
 router.use('/api/proxy', proxyRoutes)
 router.use('/auth', authRoutes)
-router.use('/me', meRoutes)
-router.use('/me', userDataRoutes)
+router.use('/me', imageProxyMiddleware, meRoutes)
+router.use('/me', imageProxyMiddleware, userDataRoutes)
 router.use('/themes', themesRoutes)
 router.use('/api/admin', adminRoutes)
 router.use('/api/updates', updatesRoutes)

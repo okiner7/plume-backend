@@ -281,24 +281,22 @@ function getTranscodingScore(t) {
   const protocol = t.format?.protocol || '';
   const quality = t.quality || '';
 
-  if (preset.includes('256k') || (preset.includes('aac') && (quality === 'high' || quality === 'hq'))) {
-    score += 4000;
-  } else if (preset.includes('160k') || preset.includes('opus')) {
-    score += 3000;
-  } else if (preset.includes('mp3_128_hq')) {
-    score += 2000;
-  } else if (preset.includes('mp3_128_sq')) {
-    score += 1000;
+  if (preset.includes('256k') || preset.includes('aac_256') || (preset.includes('aac') && (quality === 'high' || quality === 'hq'))) {
+    score = 100;
+  } else if (preset.includes('160k') || preset.includes('opus') || preset.includes('opus_160')) {
+    score = 90;
   } else if (preset.includes('aac')) {
-    score += 800;
-  } else if (preset.includes('mp3')) {
-    score += 600;
+    score = 80;
+  } else if (preset.includes('mp3_128_hq')) {
+    score = 60;
+  } else if (preset.includes('mp3_128') || preset.includes('mp3')) {
+    score = 50;
   } else {
-    score += 100;
+    score = 10;
   }
 
-  if (protocol === 'progressive') score += 50;
-  if (quality === 'high' || quality === 'hq') score += 10;
+  if (protocol === 'hls') score += 5;
+  if (quality === 'high' || quality === 'hq') score += 5;
   return score;
 }
 
@@ -490,5 +488,6 @@ module.exports = {
   scrapeFreshClientIds,
   validateClientId,
   selectBestTranscoding,
+  getTranscodingScore,
   FALLBACK_CLIENT_IDS
 };

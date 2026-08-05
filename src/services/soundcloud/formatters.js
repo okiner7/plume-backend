@@ -15,8 +15,8 @@ function formatTrack(t) {
     artwork,
     url: t.permalink_url,
     genre: t.genre || 'None',
-    stream_url: t.media?.transcodings?.find(tr => tr.format.protocol === 'progressive')?.url ||
-      t.media?.transcodings?.find(tr => tr.format.protocol === 'hls')?.url ||
+    stream_url: t.media?.transcodings?.find(tr => tr.format?.protocol === 'hls')?.url ||
+      t.media?.transcodings?.find(tr => tr.format?.protocol === 'progressive')?.url ||
       t.media?.transcodings?.[0]?.url || null
   }
 }

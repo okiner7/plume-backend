@@ -7,11 +7,11 @@ const request = require('supertest')
 const express = require('express')
 const axios = require('axios')
 const { isAllowedImageUrl } = require('../../src/utils/ssrfValidator')
+const imageProxyMiddleware = require('../../src/middleware/imageProxy')
+const { transformImageUrls } = imageProxyMiddleware
 const proxyModule = require('../../src/routes/proxy.routes')
 const proxyRouter = proxyModule.router || proxyModule
 const ImageLruCache = proxyModule.ImageLruCache
-
-jest.mock('axios')
 
 describe('Milestone 1: Image Proxy Unit Tests', () => {
 
@@ -173,11 +173,17 @@ describe('Milestone 1: Image Proxy Unit Tests', () => {
    * ========================================================================= */
   describe('3. GET /api/proxy/image Route Handler', () => {
     let app
+    let axiosGetSpy
 
     beforeEach(() => {
-      jest.clearAllMocks()
+      jest.restoreAllMocks()
+      axiosGetSpy = jest.spyOn(axios, 'get')
       app = express()
       app.use('/api/proxy', proxyRouter)
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
     })
 
     it('should return 400 Bad Request when url query parameter is missing', async () => {
@@ -211,7 +217,7 @@ describe('Milestone 1: Image Proxy Unit Tests', () => {
       const targetUrl = 'https://i.ytimg.com/vi/test1234/hqdefault.jpg'
       const mockImageBuffer = Buffer.from('mock-jpeg-binary-stream-data')
 
-      axios.get.mockResolvedValueOnce({
+      axiosGetSpy.mockResolvedValueOnce({
         status: 200,
         headers: { 'content-type': 'image/jpeg' },
         data: mockImageBuffer
@@ -224,14 +230,14 @@ describe('Milestone 1: Image Proxy Unit Tests', () => {
       expect(response.headers['content-type']).toContain('image/jpeg')
       expect(response.headers['cache-control']).toBe('public, max-age=604800, immutable')
       expect(response.body).toEqual(mockImageBuffer)
-      expect(axios.get).toHaveBeenCalledTimes(1)
+      expect(axiosGetSpy).toHaveBeenCalledTimes(1)
     })
 
     it('should return cached image instantly on cache hit without re-fetching upstream', async () => {
       const targetUrl = 'https://a1.sndcdn.com/artworks-000999-large.jpg'
       const mockImageBuffer = Buffer.from('mock-soundcloud-image-data')
 
-      axios.get.mockResolvedValueOnce({
+      axiosGetSpy.mockResolvedValueOnce({
         status: 200,
         headers: { 'content-type': 'image/png' },
         data: mockImageBuffer
@@ -254,13 +260,13 @@ describe('Milestone 1: Image Proxy Unit Tests', () => {
       expect(res2.body).toEqual(mockImageBuffer)
 
       // Upstream client (axios.get) must only be called ONCE
-      expect(axios.get).toHaveBeenCalledTimes(1)
+      expect(axiosGetSpy).toHaveBeenCalledTimes(1)
     })
 
     it('should handle upstream HTTP errors gracefully', async () => {
       const targetUrl = 'https://i.ytimg.com/vi/nonexistent/hqdefault.jpg'
 
-      axios.get.mockRejectedValueOnce({
+      axiosGetSpy.mockRejectedValueOnce({
         response: { status: 404, data: 'Not Found' }
       })
 
@@ -268,6 +274,134 @@ describe('Milestone 1: Image Proxy Unit Tests', () => {
         .get(`/api/proxy/image?url=${encodeURIComponent(targetUrl)}`)
 
       expect([400, 404, 502, 500]).toContain(response.status)
+    })
+  })
+
+  /* =========================================================================
+   * 4. Response Transformer Middleware (imageProxyMiddleware - Milestone 2)
+   * ========================================================================= */
+  describe('4. Response Transformer Middleware (imageProxyMiddleware)', () => {
+    describe('transformImageUrls utility function', () => {
+      it('should transform YouTube cover image URLs (i.ytimg.com)', () => {
+        const ytUrl = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
+        expect(transformImageUrls(ytUrl)).toBe(
+          `/api/proxy/image?url=${encodeURIComponent(ytUrl)}`
+        )
+      })
+
+      it('should transform SoundCloud cover image URLs (*.sndcdn.com)', () => {
+        const scUrl = 'https://a1.sndcdn.com/artworks-000123456-large.jpg'
+        expect(transformImageUrls(scUrl)).toBe(
+          `/api/proxy/image?url=${encodeURIComponent(scUrl)}`
+        )
+      })
+
+      it('should transform Yandex avatar URLs (avatars.yandex.net)', () => {
+        const yandexUrl = 'https://avatars.yandex.net/get-music-content/12345/abcdef.jpg/m1000x1000'
+        expect(transformImageUrls(yandexUrl)).toBe(
+          `/api/proxy/image?url=${encodeURIComponent(yandexUrl)}`
+        )
+      })
+
+      it('should transform Picsum photos URLs (picsum.photos)', () => {
+        const picsumUrl = 'https://picsum.photos/200/300'
+        expect(transformImageUrls(picsumUrl)).toBe(
+          `/api/proxy/image?url=${encodeURIComponent(picsumUrl)}`
+        )
+      })
+
+      it('should not transform non-whitelisted image URLs', () => {
+        const externalUrl = 'https://evil.com/malicious.png'
+        expect(transformImageUrls(externalUrl)).toBe(externalUrl)
+      })
+
+      it('should prevent double proxying if URL is already proxied', () => {
+        const proxiedUrl = '/api/proxy/image?url=https%3A%2F%2Fi.ytimg.com%2Fvi%2FdQw4w9WgXcQ%2Fhqdefault.jpg'
+        expect(transformImageUrls(proxiedUrl)).toBe(proxiedUrl)
+      })
+
+      it('should recursively inspect and transform nested objects and arrays in payloads', () => {
+        const payload = {
+          success: true,
+          data: {
+            title: 'Track Title',
+            cover: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+            variants: [
+              'https://a1.sndcdn.com/artworks-000123-large.jpg',
+              'https://evil.com/unauthorized.png',
+              '/api/proxy/image?url=https%3A%2F%2Fpicsum.photos%2F200'
+            ]
+          }
+        }
+
+        const transformed = transformImageUrls(payload)
+        expect(transformed.data.cover).toBe(
+          '/api/proxy/image?url=https%3A%2F%2Fi.ytimg.com%2Fvi%2FdQw4w9WgXcQ%2Fhqdefault.jpg'
+        )
+        expect(transformed.data.variants[0]).toBe(
+          '/api/proxy/image?url=https%3A%2F%2Fa1.sndcdn.com%2Fartworks-000123-large.jpg'
+        )
+        expect(transformed.data.variants[1]).toBe('https://evil.com/unauthorized.png')
+        expect(transformed.data.variants[2]).toBe(
+          '/api/proxy/image?url=https%3A%2F%2Fpicsum.photos%2F200'
+        )
+      })
+
+      it('should handle primitives, nulls, and undefined gracefully', () => {
+        expect(transformImageUrls(null)).toBeNull()
+        expect(transformImageUrls(undefined)).toBeUndefined()
+        expect(transformImageUrls(42)).toBe(42)
+        expect(transformImageUrls(true)).toBe(true)
+      })
+    })
+
+    describe('imageProxyMiddleware Express integration', () => {
+      let testApp
+
+      beforeEach(() => {
+        testApp = express()
+        testApp.use(express.json())
+
+        const ytSubRouter = express.Router()
+        ytSubRouter.get('/search', (req, res) => {
+          res.json({
+            results: [
+              {
+                id: 'yt1',
+                thumbnail: 'https://i.ytimg.com/vi/abc/hqdefault.jpg'
+              }
+            ]
+          })
+        })
+
+        const meSubRouter = express.Router()
+        meSubRouter.get('/profile', (req, res) => {
+          res.json({
+            user: 'testuser',
+            avatar: 'https://avatars.yandex.net/get-music-content/1/abc.jpg'
+          })
+        })
+
+        const mainRouter = express.Router()
+        mainRouter.use('/api/yt', imageProxyMiddleware, ytSubRouter)
+        mainRouter.use('/me', imageProxyMiddleware, meSubRouter)
+
+        testApp.use(mainRouter)
+      })
+
+      it('should rewrite response payload image URLs on /api/yt routes', async () => {
+        const res = await request(testApp).get('/api/yt/search').expect(200)
+        expect(res.body.results[0].thumbnail).toBe(
+          '/api/proxy/image?url=https%3A%2F%2Fi.ytimg.com%2Fvi%2Fabc%2Fhqdefault.jpg'
+        )
+      })
+
+      it('should rewrite response payload image URLs on /me routes', async () => {
+        const res = await request(testApp).get('/me/profile').expect(200)
+        expect(res.body.avatar).toBe(
+          '/api/proxy/image?url=https%3A%2F%2Favatars.yandex.net%2Fget-music-content%2F1%2Fabc.jpg'
+        )
+      })
     })
   })
 })

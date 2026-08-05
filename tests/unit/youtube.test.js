@@ -206,6 +206,8 @@ describe('lunex-ytdl Utility & Stream Route Integration', () => {
         expect(res.headers['content-type']).toContain('audio/mp4');
         expect(res.headers['accept-ranges']).toBe('bytes');
         expect(res.headers['content-range']).toBe('bytes 0-14/15');
+        expect(res.headers['x-audio-bitrate']).toBeDefined();
+        expect(res.headers['x-audio-codec']).toBeDefined();
       } finally {
         global.fetch = originalFetch;
       }
