@@ -58,7 +58,7 @@ const crypto = require('crypto')
 
 app.use((req, res, next) => {
   // Allow Telegram Webhooks, Status, Root endpoint, OAuth routes, static Admin UI, and favicon
-  if (req.path === '/api/status' || req.path === '/api/yt/stream' || req.path === '/api/sc/stream' || req.path === '/' || req.path === '/favicon.ico' || req.path.startsWith('/auth/') || req.path.startsWith('/admin') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/updates') || req.path.startsWith('/socket.io') || req.method === 'OPTIONS') return next()
+  if (req.path === '/api/status' || req.path === '/api/yt/stream' || req.path === '/api/sc/stream' || req.path.startsWith('/api/proxy') || req.path === '/' || req.path === '/favicon.ico' || req.path.startsWith('/auth/') || req.path.startsWith('/admin') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/updates') || req.path.startsWith('/socket.io') || req.method === 'OPTIONS') return next()
   
   const timestamp = req.headers['x-plume-timestamp']
   const signature = req.headers['x-plume-signature']
