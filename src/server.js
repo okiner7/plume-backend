@@ -123,8 +123,16 @@ app.use(apiTracker)
 app.use(routes)
 
 app.use((err, req, res, next) => {
+  // 1. Prevent ERR_HTTP_HEADERS_SENT if audio streaming headers were already sent to client
+  if (res.headersSent) {
+    return next(err)
+  }
+
   const status = err.status || err.statusCode || (err.name === 'AppError' || err.name === 'ZodError' ? 400 : 500)
-  const safeMessage = typeof err.message === 'string' ? err.message : String(err.message || 'Internal server error')
+  const safeMessage = typeof err?.message === 'string' 
+    ? err.message 
+    : (typeof err === 'string' ? err : 'Internal server error')
+    
   console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, safeMessage)
 
   // Send Telegram alert for unexpected server errors (5xx only, not 4xx client errors)
@@ -133,14 +141,9 @@ app.use((err, req, res, next) => {
       `❌ *Server Error ${status}*`,
       `Route: \`${req.method} ${req.originalUrl}\``,
       `Message: ${safeMessage.slice(0, 300)}`,
-      err.stack ? `\`\`\`\n${String(err.stack).slice(0, 600)}\n\`\`\`` : ''
+      (err && err.stack) ? `\`\`\`\n${String(err.stack).slice(0, 600)}\n\`\`\`` : ''
     ].filter(Boolean).join('\n')
     telegramBot.sendAdminAlert(alertMsg).catch(() => {})
-  }
-
-  // Prevent ERR_HTTP_HEADERS_SENT if audio streaming headers were already sent to client
-  if (res.headersSent) {
-    return next(err)
   }
 
   res.status(status).json({ success: false, error: safeMessage })
