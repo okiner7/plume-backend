@@ -32,8 +32,8 @@ router.get('/stream', asyncHandler(async (req, res) => {
     return
   }
 
-  // Prevent replay attacks / eternal links (max 60 seconds diff)
-  if (Math.abs(Date.now() - parseInt(t, 10)) > 60000) {
+  // Prevent replay attacks / eternal links (valid for 1 hour to allow pausing, seeking and clock drift)
+  if (Math.abs(Date.now() - parseInt(t, 10)) > 3600000) {
     res.status(403).json({ success: false, error: 'Stream link expired' })
     return
   }
