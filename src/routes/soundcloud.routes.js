@@ -3,6 +3,10 @@ const { cacheMiddleware: cache, getStreamCache, setStreamCache, deleteStreamCach
 const asyncHandler = require('../middleware/asyncHandler')
 const sc = require('../services/soundcloud')
 const lunexSc = require('../utils/lunex-sc')
+const crypto = require('crypto')
+
+if (!process.env.LUNEX_APP_SECRET) throw new Error('[Plume] Отсутствует обязательная переменная среды: LUNEX_APP_SECRET')
+const APP_SECRET = process.env.LUNEX_APP_SECRET
 
 const router = Router()
 
@@ -25,8 +29,27 @@ router.get('/search/playlists', cache(7200), asyncHandler(async (req) => {
 }))
 
 router.get('/stream', asyncHandler(async (req, res) => {
-  let { url, id } = req.query
+  let { url, id, t, sig } = req.query
   if (!url && !id) throw new Error('Stream URL or track ID required')
+
+  if (!t || !sig) {
+    res.status(403).json({ success: false, error: 'Auth required' })
+    return
+  }
+
+  const expectedSig = crypto.createHmac('sha256', APP_SECRET)
+                            .update('/api/sc/stream' + t)
+                            .digest('hex')
+  if (sig !== expectedSig) {
+    res.status(403).json({ success: false, error: 'Invalid signature' })
+    return
+  }
+
+  // Prevent replay attacks / eternal links (max 60 seconds diff)
+  if (Math.abs(Date.now() - parseInt(t, 10)) > 60000) {
+    res.status(403).json({ success: false, error: 'Stream link expired' })
+    return
+  }
 
   const targetUrl = url || `https://api.soundcloud.com/tracks/${id}`
   const cacheKey = `sc_${id || url}`
