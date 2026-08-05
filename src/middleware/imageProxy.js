@@ -7,22 +7,25 @@ const { isAllowedImageUrl } = require('../utils/ssrfValidator')
  * @param {*} data - The payload or nested value to transform.
  * @returns {*} The transformed payload.
  */
-function transformImageUrls(data) {
+function transformImageUrls(data, baseUrl = '') {
   if (typeof data === 'string') {
     // Prevent double proxying if the URL is already proxied
     if (data.includes('/api/proxy/image?url=')) {
+      if (data.startsWith('/') && baseUrl) {
+        return `${baseUrl}${data}`
+      }
       return data
     }
 
     if (isAllowedImageUrl(data)) {
-      return `/api/proxy/image?url=${encodeURIComponent(data)}`
+      return `${baseUrl}/api/proxy/image?url=${encodeURIComponent(data)}`
     }
 
     return data
   }
 
   if (Array.isArray(data)) {
-    return data.map(item => transformImageUrls(item))
+    return data.map(item => transformImageUrls(item, baseUrl))
   }
 
   if (data !== null && typeof data === 'object') {
@@ -32,7 +35,7 @@ function transformImageUrls(data) {
 
     const transformed = {}
     for (const key of Object.keys(data)) {
-      transformed[key] = transformImageUrls(data[key])
+      transformed[key] = transformImageUrls(data[key], baseUrl)
     }
     return transformed
   }
@@ -53,7 +56,10 @@ function imageProxyMiddleware(req, res, next) {
 
   res.json = function (body) {
     if (body !== undefined && body !== null) {
-      body = transformImageUrls(body)
+      const host = req.get('host')
+      const protocol = req.protocol || 'http'
+      const baseUrl = process.env.PUBLIC_API_URL || (host ? `${protocol}://${host}` : '')
+      body = transformImageUrls(body, baseUrl)
     }
     return originalJson.call(this, body)
   }
