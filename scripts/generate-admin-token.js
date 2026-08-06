@@ -1,4 +1,5 @@
-require('dotenv').config()
+const path = require('path')
+require('dotenv').config({ path: path.join(__dirname, '../.env') })
 const jwt = require('jsonwebtoken')
 
 const args = process.argv.slice(2)
@@ -22,9 +23,11 @@ if (emailArg || (googleEmails.length > 0 && tgIds.length === 0)) {
   payload = { provider: 'telegram', provider_id: tgIds[0] }
 }
 
+const secret = process.env.JWT_SECRET || 'dev-secret-change-in-production'
+
 const token = jwt.sign(
   payload, 
-  process.env.JWT_SECRET,
+  secret,
   { expiresIn: '7d' } // Живёт 7 дней
 )
 
