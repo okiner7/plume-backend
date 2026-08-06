@@ -478,27 +478,28 @@ async function fetchProxies() {
   try {
     const res = await apiRequest('/proxies')
     const proxies = Array.isArray(res) ? res : (res.data || [])
-    const tbody = document.getElementById('proxy-tbody')
+    const tbody = document.getElementById('proxies-tbody') || document.getElementById('proxy-tbody')
+    if (!tbody) return
     tbody.innerHTML = ''
     
     if (proxies.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted)">No proxies configured</td></tr>'
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted)">No proxies configured</td></tr>'
       return
     }
     
     proxies.forEach(p => {
-      const isCooldown = p.status.startsWith('cooldown')
+      const isCooldown = p.status && p.status.startsWith('cooldown')
       const isOffline = p.status === 'offline'
       let statusHtml = ''
       if (isOffline) {
         statusHtml = `<span class="badge" style="background: var(--surface-light); color: var(--text-muted); border: 1px solid var(--border); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">OFFLINE</span>`
       } else if (isCooldown) {
-        statusHtml = `<span class="badge danger" style="background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${p.status.toUpperCase()}</span>` 
+        statusHtml = `<span class="badge danger" style="background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${(p.status || 'cooldown').toUpperCase()}</span>` 
       } else {
         statusHtml = `<span class="badge success" style="background: rgba(50, 215, 75, 0.1); color: var(--success); border: 1px solid rgba(50, 215, 75, 0.3); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">ACTIVE</span>`
       }
       
-      const actionHtml = `<button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="removeProxy('${p._url || p.url}')">Remove</button>`
+      const actionHtml = `<button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="window.removeProxy('${p._url || p.url}')">Remove</button>`
       const displayIp = (p.address || p.url || 'Unknown').replace(/.*@/, '')
       const scLat = (p.latencyMap && p.latencyMap.soundcloud !== null && p.latencyMap.soundcloud !== Infinity) ? p.latencyMap.soundcloud + 'ms' : '∞'
       const ytLat = (p.latencyMap && p.latencyMap.youtube !== null && p.latencyMap.youtube !== Infinity) ? p.latencyMap.youtube + 'ms' : '∞'
@@ -529,12 +530,13 @@ async function resetProxies() {
 }
 
 async function addProxy() {
-  const url = document.getElementById('proxy-input').value.trim()
+  const input = document.getElementById('new-proxy-url') || document.getElementById('proxy-input')
+  const url = input ? input.value.trim() : ''
   if (!url) return alert('Enter proxy URL')
   try {
     const data = await apiRequest('/proxies', 'POST', { url })
     alert(data.message)
-    document.getElementById('proxy-input').value = ''
+    if (input) input.value = ''
     fetchProxies()
   } catch (err) {
     alert('Failed to add: ' + err.message)

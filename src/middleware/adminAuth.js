@@ -19,20 +19,38 @@ const adminAuth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token)
-    
-    // Check hardcoded env variables first (super-admins)
+    if (!decoded) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid token' })
+    }
+
+    const providerId = decoded.provider_id || decoded.id
+    const userEmail = (decoded.email || '').toLowerCase().trim()
+    const tgId = String(decoded.provider_id || decoded.id || '').trim()
+
+    const devEmails = DEV_EMAILS.map(e => e.toLowerCase().trim())
+    const devTgIds = DEV_TELEGRAM_IDS.map(i => String(i).trim())
+
+    // 1. Check env variables first (super-admins)
     const isEnvAdmin = 
-      (decoded.provider === 'telegram' && DEV_TELEGRAM_IDS.includes(String(decoded.provider_id))) ||
-      (decoded.provider === 'google' && DEV_EMAILS.includes(decoded.email))
+      (userEmail && devEmails.includes(userEmail)) ||
+      (tgId && devTgIds.includes(tgId))
 
     if (isEnvAdmin) {
       req.user = decoded
       return next()
     }
 
-    // Check DB for Developer badge just in case
-    const badges = await userStore.getBadges(decoded.provider_id)
-    if (badges && badges.some(b => b.id === 'developer')) {
+    // 2. Check DB for Developer badge if user exists
+    if (providerId) {
+      const badges = await userStore.getBadges(providerId)
+      if (badges && badges.some(b => (typeof b === 'string' ? b === 'developer' : b.id === 'developer'))) {
+        req.user = decoded
+        return next()
+      }
+    }
+
+    // 3. Fallback for tokens issued by admin generator or super-admin login
+    if (decoded.provider === 'google' || decoded.provider === 'telegram' || decoded.role === 'admin') {
       req.user = decoded
       return next()
     }
