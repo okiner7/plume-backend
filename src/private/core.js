@@ -859,14 +859,6 @@ async function restartServer() {
     alert('Restart signal sent, server might be offline now.')
   }
 }
-
-
-function closeUserModal() {
-  document.getElementById('user-modal').classList.remove('active')
-}
-
-// Required for inline onclick handlers added dynamically
-window.closeUserModal = closeUserModal
 window.login = login
 window.logout = logout
 window.connectAdminSSE = connectAdminSSE
