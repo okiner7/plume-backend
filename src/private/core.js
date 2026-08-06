@@ -754,6 +754,35 @@ async function removeBadge(id, badgeId) {
   } catch(e) { alert('Failed to remove badge: ' + e.message) }
 }
 
+function closeUserModal() {
+  const modal = document.getElementById('user-modal')
+  if (modal) modal.classList.remove('active')
+}
+
+async function sendBroadcastFromTab() {
+  const msgInput = document.getElementById('broadcast-msg-input')
+  const typeInput = document.getElementById('broadcast-type-input')
+  const statusMsg = document.getElementById('broadcast-status-msg')
+  
+  const msg = msgInput ? msgInput.value.trim() : ''
+  const type = typeInput ? typeInput.value : 'info'
+  
+  if (!msg) {
+    if (statusMsg) statusMsg.innerText = 'Please enter announcement message'
+    return
+  }
+  
+  try {
+    if (statusMsg) statusMsg.innerText = 'Broadcasting...'
+    const res = await apiRequest('/broadcast', 'POST', { message: msg, type })
+    if (statusMsg) statusMsg.innerText = 'Broadcast sent successfully!'
+    if (msgInput) msgInput.value = ''
+    setTimeout(() => { if (statusMsg) statusMsg.innerText = '' }, 3000)
+  } catch (err) {
+    if (statusMsg) statusMsg.innerText = 'Failed: ' + err.message
+  }
+}
+
 async function sendBroadcast() {
   const msg = prompt('Enter announcement text to broadcast to all active users:')
   if (!msg || !msg.trim()) return

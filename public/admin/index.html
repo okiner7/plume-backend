@@ -41,6 +41,7 @@
           <button class="tab-btn" data-tab="proxies">Proxies</button>
           <button class="tab-btn" data-tab="insights">Insights</button>
           <button class="tab-btn" data-tab="api">API</button>
+          <button class="tab-btn" data-tab="broadcast">Broadcast 📢</button>
           <button class="tab-btn" data-tab="logs">Logs</button>
           <button class="tab-btn" data-tab="system">System</button>
           <button class="tab-btn" data-tab="updates">Updates</button>
@@ -95,8 +96,33 @@
           </div>
         </div>
 
-        <!-- TAB: API DASHBOARD -->
-        <div id="tab-api" class="tab-pane">
+        <!-- TAB: BROADCAST -->
+        <div id="tab-broadcast" class="tab-pane">
+          <div class="page-header">
+            <h2>Broadcast System Announcement 📢</h2>
+          </div>
+          <div class="card" style="max-width: 640px; padding: 24px;">
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; line-height: 1.5;">
+              Send real-time system notifications or maintenance alerts to all active desktop app users connected to WebSockets.
+            </p>
+            <div class="form-group mb-4" style="margin-bottom: 16px;">
+              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Announcement Message</label>
+              <textarea id="broadcast-msg-input" class="input-base" style="width: 100%; min-height: 110px; padding: 12px; resize: vertical; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px;" placeholder="Type system alert or notification..."></textarea>
+            </div>
+            <div class="form-group mb-4" style="margin-bottom: 20px;">
+              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Alert Severity / Type</label>
+              <select id="broadcast-type-input" class="input-base" style="width: 100%; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px;">
+                <option value="info">Info ℹ️ (General Update)</option>
+                <option value="warning">Warning ⚠️ (Maintenance / Latency)</option>
+                <option value="alert">Critical Alert 🚨 (Emergency Service Alert)</option>
+              </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button id="btn-send-broadcast" class="btn-primary" onclick="sendBroadcastFromTab()" style="padding: 10px 20px; font-weight: 600;">Broadcast Announcement</button>
+              <span id="broadcast-status-msg" style="font-size: 13px; color: var(--text-muted);"></span>
+            </div>
+          </div>
+        </div>
           <div class="page-header">
             <h2>API Activity (Last 24h)</h2>
             <button id="btn-refresh-api" class="btn-secondary">
