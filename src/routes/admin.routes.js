@@ -235,8 +235,17 @@ router.delete('/users/:id/badges/:badgeId', asyncHandler(async (req) => {
 router.post('/broadcast', asyncHandler(async (req) => {
   const { message, type = 'info' } = req.body
   if (!message) throw new Error('Broadcast message required')
-  sseBroadcaster.broadcast('announcement', { message, type, timestamp: new Date().toISOString() })
-  return { message: 'Announcement broadcasted to all users' }
+  
+  const payload = { message, type, timestamp: new Date().toISOString() }
+  
+  // 1. Broadcast to SSE clients (Admin Panel)
+  sseBroadcaster.broadcast('announcement', payload)
+  
+  // 2. Broadcast to Socket.io clients (Desktop Apps)
+  const socketBroadcaster = require('../socket/broadcast')
+  socketBroadcaster.broadcast('announcement', payload)
+  
+  return { message: 'Announcement broadcasted to all active users' }
 }))
 
 router.get('/insights/top-searches', asyncHandler(async (req) => {

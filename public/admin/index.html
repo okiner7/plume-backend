@@ -41,21 +41,22 @@
           <button class="tab-btn" data-tab="proxies">Proxies</button>
           <button class="tab-btn" data-tab="insights">Insights</button>
           <button class="tab-btn" data-tab="api">API</button>
-          <button class="tab-btn" data-tab="broadcast">Broadcast 📢</button>
+          <button class="tab-btn" data-tab="broadcast">Broadcast</button>
           <button class="tab-btn" data-tab="logs">Logs</button>
           <button class="tab-btn" data-tab="system">System</button>
           <button class="tab-btn" data-tab="updates">Updates</button>
         </div>
         <div class="nav-actions">
-          <span id="sse-status-badge" class="badge live-disconnected">CONNECTING...</span>
-          <span class="badge">OWNER</span>
-          <button id="btn-logout" class="btn-icon" title="Logout">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          </button>
+          <span id="connection-status-badge" class="badge live-disconnected" style="margin-right: 12px; font-size: 11px; padding: 4px 10px;">
+            <span class="pulse-dot" style="background-color: var(--danger);"></span> Offline
+          </span>
+          <button id="btn-logout" class="btn-secondary" style="color: var(--danger); border-color: rgba(255, 69, 58, 0.3);">Logout</button>
         </div>
       </header>
 
+      <!-- Main Content -->
       <main class="content">
+
         <!-- TAB: OVERVIEW -->
         <div id="tab-overview" class="tab-pane active">
           <div class="page-header">
@@ -65,33 +66,152 @@
               Refresh
             </button>
           </div>
-          
-          <div class="metrics-grid">
-            <div class="card metric-card">
-              <span class="metric-label">Active Users (24h)</span>
-              <span class="metric-value" id="stat-active-users">-</span>
+
+          <!-- Stats Grid -->
+          <div class="grid grid-4 mb-6">
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Total Users</span>
+                <span class="stat-badge">DB</span>
+              </div>
+              <div class="stat-value" id="stat-total-users">0</div>
+              <div class="stat-trend neutral">Registered Accounts</div>
             </div>
-            <div class="card metric-card">
-              <span class="metric-label">Total Users</span>
-              <span class="metric-value" id="stat-total-users">-</span>
+            
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Active Users (24h)</span>
+                <span class="stat-badge">24h</span>
+              </div>
+              <div class="stat-value" id="stat-active-users">0</div>
+              <div class="stat-trend positive" id="stat-active-breakdown">Active Session Count</div>
             </div>
-            <div class="card metric-card">
-              <span class="metric-label">Uptime</span>
-              <span class="metric-value" id="stat-uptime">-</span>
+            
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Memory Usage</span>
+                <span class="stat-badge">RAM</span>
+              </div>
+              <div class="stat-value" id="stat-memory">0 MB</div>
+              <div class="stat-trend neutral" id="stat-memory-sub">Server Heap & RSS</div>
             </div>
-            <div class="card metric-card">
-              <span class="metric-label">Memory</span>
-              <span class="metric-value" id="stat-memory">-</span>
-            </div>
-            <div class="card metric-card">
-              <span class="metric-label">Redis</span>
-              <span class="metric-value" id="stat-redis">-</span>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Active Proxies</span>
+                <span class="stat-badge">POOL</span>
+              </div>
+              <div class="stat-value" id="stat-proxies">0 / 0</div>
+              <div class="stat-trend positive" id="stat-proxies-sub">YouTube / SC Proxy Pool</div>
             </div>
           </div>
 
-          <div class="card mt-6">
-            <div class="chart-container">
-              <canvas id="metricsChart"></canvas>
+          <!-- Quick Charts / Activity -->
+          <div class="grid grid-2 mb-6">
+            <div class="card">
+              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Server Memory History</h3>
+              <div class="chart-container">
+                <canvas id="ramChart"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Live API Hit Stream</h3>
+              <div id="live-feed" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column;">
+                <div class="text-muted" style="text-align: center; padding: 20px;">Listening for live hits...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: USERS -->
+        <div id="tab-users" class="tab-pane">
+          <div class="page-header">
+            <h2>User Management</h2>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="user-search" class="input-base" placeholder="Search by ID or Name..." style="width: 220px; padding: 6px 12px;">
+              <button id="btn-refresh-users" class="btn-secondary">Refresh</button>
+            </div>
+          </div>
+
+          <div class="card" style="padding: 0; overflow-x: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>ID</th>
+                  <th>Name / Tag</th>
+                  <th>Last Active</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted)">Loading users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: PROXIES -->
+        <div id="tab-proxies" class="tab-pane">
+          <div class="page-header">
+            <h2>Proxy Pool Management</h2>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-reset-proxies" class="btn-secondary" style="color: var(--danger)">Reset Cooldowns</button>
+              <button id="btn-refresh-proxies" class="btn-secondary">Refresh</button>
+            </div>
+          </div>
+
+          <div class="card mb-6" style="padding: 16px;">
+            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; color: var(--text-muted);">Add New Proxy</h3>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="new-proxy-url" class="input-base" placeholder="http://username:password@ip:port or http://ip:port" style="flex: 1;">
+              <button id="btn-add-proxy" class="btn-primary">Add Proxy</button>
+            </div>
+          </div>
+
+          <div class="card" style="padding: 0; overflow-x: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Proxy Server Address</th>
+                  <th>Status</th>
+                  <th>Failures</th>
+                  <th>Cooldown</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="proxies-tbody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted)">Loading proxies...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: INSIGHTS -->
+        <div id="tab-insights" class="tab-pane">
+          <div class="page-header">
+            <h2>System Insights & Analytics</h2>
+            <button id="btn-refresh-insights" class="btn-secondary">Refresh</button>
+          </div>
+
+          <div class="insights-container">
+            <div class="insights-col card">
+              <div class="insights-header">
+                <h3>Top 50 Searched Queries</h3>
+              </div>
+              <div class="insights-list" id="insights-searches">
+                <div class="text-muted" style="padding: 20px; text-align: center;">Loading insights...</div>
+              </div>
+            </div>
+
+            <div class="insights-col card">
+              <div class="insights-header">
+                <h3>Top Played Tracks</h3>
+              </div>
+              <div class="insights-list" id="insights-tracks">
+                <div class="text-muted" style="padding: 20px; text-align: center;">Loading insights...</div>
+              </div>
             </div>
           </div>
         </div>
@@ -99,27 +219,27 @@
         <!-- TAB: BROADCAST -->
         <div id="tab-broadcast" class="tab-pane">
           <div class="page-header">
-            <h2>Broadcast System Announcement 📢</h2>
+            <h2>Broadcast System Announcement</h2>
           </div>
-          <div class="card" style="max-width: 640px; padding: 24px;">
-            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; line-height: 1.5;">
+          <div class="card" style="max-width: 680px; padding: 28px;">
+            <p class="text-muted" style="margin-bottom: 24px; line-height: 1.6; font-size: 14px;">
               Send real-time system notifications or maintenance alerts to all active desktop app users connected to WebSockets.
             </p>
-            <div class="form-group mb-4" style="margin-bottom: 16px;">
-              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Announcement Message</label>
-              <textarea id="broadcast-msg-input" class="input-base" style="width: 100%; min-height: 110px; padding: 12px; resize: vertical; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px;" placeholder="Type system alert or notification..."></textarea>
-            </div>
             <div class="form-group mb-4" style="margin-bottom: 20px;">
-              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Alert Severity / Type</label>
-              <select id="broadcast-type-input" class="input-base" style="width: 100%; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px;">
-                <option value="info">Info ℹ️ (General Update)</option>
-                <option value="warning">Warning ⚠️ (Maintenance / Latency)</option>
-                <option value="alert">Critical Alert 🚨 (Emergency Service Alert)</option>
+              <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Announcement Message</label>
+              <textarea id="broadcast-msg-input" class="input-base" style="width: 100%; min-height: 120px; resize: vertical;" placeholder="Type system alert or notification..."></textarea>
+            </div>
+            <div class="form-group mb-4" style="margin-bottom: 24px;">
+              <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Alert Severity / Type</label>
+              <select id="broadcast-type-input" class="input-base" style="width: 100%;">
+                <option value="info">Info (General Update)</option>
+                <option value="warning">Warning (Maintenance / Latency)</option>
+                <option value="alert">Critical Alert (Emergency Service Alert)</option>
               </select>
             </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <button id="btn-send-broadcast" class="btn-primary" onclick="sendBroadcastFromTab()" style="padding: 10px 20px; font-weight: 600;">Broadcast Announcement</button>
-              <span id="broadcast-status-msg" style="font-size: 13px; color: var(--text-muted);"></span>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <button id="btn-send-broadcast" class="btn-primary" onclick="window.sendBroadcastFromTab()" style="padding: 10px 22px; font-weight: 600;">Broadcast Announcement</button>
+              <span id="broadcast-status-msg" class="text-muted" style="font-weight: 500;"></span>
             </div>
           </div>
         </div>
