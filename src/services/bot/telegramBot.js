@@ -54,10 +54,13 @@ function start() {
 
     try {
       const photos = await ctx.telegram.getUserProfilePhotos(telegramId, { limit: 1 })
-      if (photos.total_count > 0) {
-        const fileId = photos.photos[0][0].file_id
-        const file = await ctx.telegram.getFile(fileId)
-        avatar = file.file_path || null
+      if (photos && photos.total_count > 0 && photos.photos && photos.photos[0] && photos.photos[0].length > 0) {
+        const photoSizes = photos.photos[0]
+        const largestPhoto = photoSizes[photoSizes.length - 1]
+        const file = await ctx.telegram.getFile(largestPhoto.file_id)
+        if (file && file.file_path) {
+          avatar = file.file_path
+        }
       }
     } catch (err) {
       console.warn('[TG Bot] Could not fetch avatar:', err.message)

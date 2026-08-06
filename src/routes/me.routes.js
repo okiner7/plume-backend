@@ -5,22 +5,44 @@ const https = require('https')
 
 const router = Router()
 
-router.get('/', authRequired, (req, res) => {
-  const user = { ...req.user }
-  // LNX-2026-007 fix: если avatar — это file_path (не полный URL), заменяем на прокси-ссылку
+router.get('/', authRequired, async (req, res) => {
+  const userStore = require('../services/storage/userStore')
+  const providerId = req.user.provider_id || req.user.id
+  let dbUser = await userStore.findByProviderId(providerId)
+  if (!dbUser) {
+    const db = require('../services/storage/database')
+    if (db.users) dbUser = await db.users.findOne({ $or: [{ providerId }, { userId: providerId }, { _id: providerId }] })
+  }
+  
+  const user = { ...req.user, ...(dbUser || {}) }
   if (user.avatar && !user.avatar.startsWith('http')) {
-    user.avatar = `/me/avatar`
+    user.avatar = `/api/me/avatar`
   }
   res.json({ success: true, data: user })
 })
 
 // LNX-2026-007: безопасный прокси для аватаров Telegram — bot token остаётся на сервере
-router.get('/avatar', authRequired, (req, res) => {
-  const filePath = req.user.avatar
-  if (!filePath || filePath.startsWith('http')) {
+router.get('/avatar', authRequired, async (req, res) => {
+  const userStore = require('../services/storage/userStore')
+  const providerId = req.user.provider_id || req.user.id
+  let dbUser = await userStore.findByProviderId(providerId)
+  if (!dbUser) {
+    const db = require('../services/storage/database')
+    if (db.users) dbUser = await db.users.findOne({ $or: [{ providerId }, { userId: providerId }, { _id: providerId }] })
+  }
+
+  const filePath = (dbUser && dbUser.avatar) || req.user.avatar
+  if (!filePath) {
     return res.status(404).json({ error: 'No avatar' })
   }
-  const url = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`
+  if (filePath.startsWith('http')) {
+    return res.redirect(filePath)
+  }
+  if (!TELEGRAM_BOT_TOKEN) {
+    return res.status(500).json({ error: 'Telegram bot token not configured' })
+  }
+
+  const url = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath.replace(/^\//, '')}`
   https.get(url, (tgRes) => {
     if (tgRes.statusCode !== 200) return res.status(404).json({ error: 'Avatar not found' })
     res.setHeader('Content-Type', tgRes.headers['content-type'] || 'image/jpeg')
