@@ -59,23 +59,33 @@ async function login() {
     if (!coreRes.ok) throw new Error('Failed to load secure dashboard logic')
     const coreJs = await coreRes.text()
     
-    // Execute the secure script
+    // Remove old script tag if exists
+    const oldScript = document.getElementById('injected-core-script')
+    if (oldScript) oldScript.remove()
+
+    const script = document.createElement('script')
+    script.id = 'injected-core-script'
+    script.type = 'text/javascript'
+    script.text = coreJs
+    document.head.appendChild(script)
+
+    // Force global window evaluation to guarantee scope availability
     try {
-      const script = document.createElement('script')
-      script.textContent = coreJs
-      document.body.appendChild(script)
+      window.eval(coreJs)
     } catch (evalErr) {
-      console.error("Error executing core.js:", evalErr)
+      console.error("Error evaluating core.js:", evalErr)
     }
 
     document.getElementById('auth-view').classList.remove('active')
     document.getElementById('dashboard-view').classList.add('active')
     
-    if (typeof initDashboard === 'function') {
+    if (typeof window.initDashboard === 'function') {
+      window.initDashboard()
+    } else if (typeof initDashboard === 'function') {
       initDashboard()
     } else {
       console.error("initDashboard is not defined! core.js may have failed to execute.")
-      alert("Failed to initialize dashboard. Check console for errors. Try hard-refreshing.")
+      alert("Failed to initialize dashboard. Try hard-refreshing (Ctrl+F5).")
     }
   } catch (err) {
     alert('Authentication failed: ' + err.message)
