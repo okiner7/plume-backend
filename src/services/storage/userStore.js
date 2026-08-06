@@ -136,11 +136,18 @@ async function getBadges(providerId) {
 }
 
 async function addBadge(providerId, badge) {
-  const user = await findOne(providerId)
+  const user = await db.users.findOne({ $or: [{ providerId }, { userId: providerId }, { _id: providerId }] })
   if (!user) return
-  const exists = user.badges && user.badges.find(b => b.id === badge.id)
+  const exists = user.badges && user.badges.find(b => (typeof b === 'string' ? b === badge.id : b.id === badge.id))
   if (exists) return
   const badges = [...(user.badges || []), { ...badge, earnedAt: new Date() }]
+  await update(user._id, { badges })
+}
+
+async function removeBadge(providerId, badgeId) {
+  const user = await db.users.findOne({ $or: [{ providerId }, { userId: providerId }, { _id: providerId }] })
+  if (!user) return
+  const badges = (user.badges || []).filter(b => (typeof b === 'string' ? b !== badgeId : b.id !== badgeId))
   await update(user._id, { badges })
 }
 
@@ -186,4 +193,4 @@ async function deleteUser(id) {
   return await db.users.deleteOne({ _id: user._id })
 }
 
-module.exports = { findOrCreate, findOne, findByProviderId, getBadges, addBadge, buildUserId, updateLastActive, countActiveUsers, countAllUsers, getRecentUsers, setBanStatus, getAllUserIds, incrementUserStat, deleteUser }
+module.exports = { findOrCreate, findOne, findByProviderId, getBadges, addBadge, removeBadge, buildUserId, updateLastActive, countActiveUsers, countAllUsers, getRecentUsers, setBanStatus, getAllUserIds, incrementUserStat, deleteUser }

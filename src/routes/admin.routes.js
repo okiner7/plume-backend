@@ -166,7 +166,7 @@ router.delete('/cache', asyncHandler(async (req) => {
   return { message: 'Cache cleared successfully', keysCleared }
 }))
 
-router.post('/users/:id/ban', validateBody(banUserSchema), asyncHandler(async (req) => {
+router.post('/users/:id/ban', asyncHandler(async (req) => {
   const userId = req.params.id
   await userStore.setBanStatus(userId, true)
   return { message: 'User banned successfully' }
@@ -186,17 +186,25 @@ router.delete('/users/:id', asyncHandler(async (req) => {
 
 router.get('/users/:id/details', asyncHandler(async (req) => {
   const userId = req.params.id
-  const user = await userStore.findByProviderId(userId)
-  if (!user) throw new Error('User not found')
+  const db = require('../services/storage/database')
+  let user = await userStore.findByProviderId(userId)
+  if (!user && db.users) {
+    user = await db.users.findOne({ $or: [{ providerId: userId }, { userId }, { _id: userId }] })
+  }
+  if (!user) {
+    user = { id: userId, providerId: userId, name: userId, badges: [] }
+  }
   
-  const searchHist = await searchHistoryStore.getRecent(user.userId || userStore.buildUserId(user.provider, user.providerId), 50)
-  const listeningHist = await listeningHistoryStore.getRecent(user.userId || userStore.buildUserId(user.provider, user.providerId), 50)
+  const targetId = user.userId || userStore.buildUserId(user.provider || 'telegram', user.providerId || userId)
+  
+  const searchHist = await searchHistoryStore.getRecent(targetId, 50).catch(() => [])
+  const listeningHist = await listeningHistoryStore.getRecent(targetId, 50).catch(() => [])
   
   const playlistsStore = require('../services/storage/playlistsStore')
-  const playlists = await playlistsStore.getAll(user.userId || userStore.buildUserId(user.provider, user.providerId))
+  const playlists = await playlistsStore.getAll(targetId).catch(() => [])
 
   const likesStore = require('../services/storage/likesStore')
-  const likesCount = await likesStore.countByUser(user.userId || userStore.buildUserId(user.provider, user.providerId))
+  const likesCount = await likesStore.countByUser(targetId).catch(() => 0)
 
   return {
     user,
@@ -205,6 +213,30 @@ router.get('/users/:id/details', asyncHandler(async (req) => {
     playlists: playlists,
     likesCount: likesCount
   }
+}))
+
+// New Admin Feature: Assign Badge to User
+router.post('/users/:id/badges', asyncHandler(async (req) => {
+  const userId = req.params.id
+  const { id: badgeId, label, description } = req.body
+  if (!badgeId || !label) throw new Error('Badge ID and Label required')
+  await userStore.addBadge(userId, { id: badgeId, label, description: description || '' })
+  return { message: `Badge "${label}" assigned to user` }
+}))
+
+// New Admin Feature: Remove Badge from User
+router.delete('/users/:id/badges/:badgeId', asyncHandler(async (req) => {
+  const { id: userId, badgeId } = req.params
+  await userStore.removeBadge(userId, badgeId)
+  return { message: 'Badge removed successfully' }
+}))
+
+// New Admin Feature: System Broadcast Announcement
+router.post('/broadcast', asyncHandler(async (req) => {
+  const { message, type = 'info' } = req.body
+  if (!message) throw new Error('Broadcast message required')
+  sseBroadcaster.broadcast('announcement', { message, type, timestamp: new Date().toISOString() })
+  return { message: 'Announcement broadcasted to all users' }
 }))
 
 router.get('/insights/top-searches', asyncHandler(async (req) => {

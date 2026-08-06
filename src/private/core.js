@@ -585,7 +585,7 @@ async function openUserModal(id) {
     }
     
     // Setup badges
-    const targetId = user.id || user.providerId || id
+    const targetId = user.providerId || user.id || id
     let badgesHtml = `<span class="badge" style="background: rgba(255,255,255,0.05); color: #999; border: 1px solid rgba(255,255,255,0.05); font-weight: 500; border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: monospace;">${targetId}</span>`
     if (user.platform) badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.1)">${user.platform}</span>`
     if (user.badges && Array.isArray(user.badges)) {
@@ -593,6 +593,7 @@ async function openUserModal(id) {
       const trophySvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F39C12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10M5 4v5c0 3.866 3.134 7 7 7h0c3.866 0 7-3.134 7-7V4M5 4l2 6m12-6-2 6"/></svg>`
       user.badges.forEach(b => {
         const text = typeof b === 'string' ? b : (b.label ? b.label : 'Badge')
+        const badgeId = typeof b === 'string' ? b : b.id
         const isDev = typeof b === 'string' ? text.toLowerCase().includes('dev') || text.toLowerCase().includes('разраб') : (b.id === 'developer')
         const isLike = typeof b === 'string' ? text.toLowerCase().includes('лайк') : (b.id && b.id.startsWith('likes_'))
         
@@ -600,7 +601,7 @@ async function openUserModal(id) {
         if (isDev) iconSvg = developerSvg
         else if (isLike) iconSvg = trophySvg
         
-        badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.15); color: #ffffff; border: none; font-weight: 600; border-radius: 20px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: normal;">${iconSvg}${text}</span>`
+        badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.15); color: #ffffff; border: none; font-weight: 600; border-radius: 20px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: normal;">${iconSvg}${text} <span style="cursor:pointer; opacity:0.7; margin-left:4px;" onclick="removeBadge('${targetId}', '${badgeId}')">×</span></span>`
       })
     }
     if (user.banned) badgesHtml += `<span class="badge danger" style="background: #e74c3c; color: white; border: none;">BANNED</span>`
@@ -610,12 +611,16 @@ async function openUserModal(id) {
     // Setup actions
     let actionsHtml = ''
     if (user.banned) {
-      actionsHtml += `<button class="btn-glass" onclick="unbanUser('${targetId}'); closeUserModal()">Unban User</button>`
+      actionsHtml += `<button class="btn-glass" onclick="unbanUser('${targetId}')">Unban User</button>`
     } else {
-      actionsHtml += `<button class="btn-danger" onclick="banUser('${targetId}'); closeUserModal()">Ban User</button>`
+      actionsHtml += `<button class="btn-danger" onclick="banUser('${targetId}')">Ban User</button>`
     }
+    actionsHtml += `<button class="btn-secondary" style="margin-left: 8px;" onclick="assignBadge('${targetId}', 'developer', 'Developer')">+ Dev Badge</button>`
+    actionsHtml += `<button class="btn-secondary" style="margin-left: 8px;" onclick="assignBadge('${targetId}', 'vip', 'VIP')">+ VIP Badge</button>`
     actionsHtml += `<button class="btn-danger" style="margin-left: 8px; background: rgba(255,69,58,0.2); border: 1px solid rgba(255,69,58,0.4);" onclick="deleteUser('${targetId}')">Delete User</button>`
     document.getElementById('up-actions').innerHTML = actionsHtml
+
+    document.getElementById('user-modal').classList.add('active')
 
     // Stats
     const totalSearches = user.totalSearches || (data.searchHistory && data.searchHistory.length) || 0
@@ -718,16 +723,44 @@ async function fetchInsights() {
 async function banUser(id) {
   if (!confirm(`Are you sure you want to ban user ${id}?`)) return
   try {
-    await apiRequest(`/users/${id}/ban`, 'POST')
+    const res = await apiRequest(`/users/${id}/ban`, 'POST', {})
+    alert(res.message || 'User banned successfully')
     fetchRecentUsers()
   } catch(e) { alert('Ban failed: ' + e.message) }
 }
 
 async function unbanUser(id) {
   try {
-    await apiRequest(`/users/${id}/ban`, 'DELETE')
+    const res = await apiRequest(`/users/${id}/ban`, 'DELETE')
+    alert(res.message || 'User unbanned successfully')
     fetchRecentUsers()
   } catch(e) { alert('Unban failed: ' + e.message) }
+}
+
+async function assignBadge(id, badgeId, label) {
+  try {
+    const res = await apiRequest(`/users/${id}/badges`, 'POST', { id: badgeId, label })
+    alert(res.message || 'Badge assigned!')
+    openUserModal(id)
+  } catch(e) { alert('Failed to assign badge: ' + e.message) }
+}
+
+async function removeBadge(id, badgeId) {
+  if (!confirm(`Remove badge "${badgeId}" from user?`)) return
+  try {
+    const res = await apiRequest(`/users/${id}/badges/${badgeId}`, 'DELETE')
+    alert(res.message || 'Badge removed!')
+    openUserModal(id)
+  } catch(e) { alert('Failed to remove badge: ' + e.message) }
+}
+
+async function sendBroadcast() {
+  const msg = prompt('Enter announcement text to broadcast to all active users:')
+  if (!msg || !msg.trim()) return
+  try {
+    const res = await apiRequest('/broadcast', 'POST', { message: msg.trim() })
+    alert(res.message || 'Broadcast sent!')
+  } catch(e) { alert('Broadcast failed: ' + e.message) }
 }
 
 async function fetchLogs() {
