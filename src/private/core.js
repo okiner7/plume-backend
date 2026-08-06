@@ -17,19 +17,39 @@ function initDashboard() {
   document.getElementById('btn-flush-cache')?.addEventListener('click', flushCache)
   document.getElementById('btn-restart-server')?.addEventListener('click', restartServer)
   
-  const searchInput = document.getElementById('user-search')
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      filterUsers(searchInput.value)
+  // Event Delegation for User Table
+  const usersTbody = document.getElementById('users-tbody')
+  if (usersTbody) {
+    usersTbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]')
+      if (!btn) return
+      const action = btn.getAttribute('data-action')
+      const id = btn.getAttribute('data-id')
+      if (!id) return
+      if (action === 'details') openUserModal(id)
+      else if (action === 'ban') banUser(id)
+      else if (action === 'unban') unbanUser(id)
     })
   }
 
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const tabId = e.currentTarget.getAttribute('data-tab')
-      if (tabId) switchTab(tabId)
+  // Event Delegation for User Modal
+  const userModal = document.getElementById('user-modal')
+  if (userModal) {
+    userModal.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-modal-action]')
+      if (!btn) return
+      const action = btn.getAttribute('data-modal-action')
+      const id = btn.getAttribute('data-id')
+      const badgeId = btn.getAttribute('data-badge-id')
+      if (action === 'close') closeUserModal()
+      else if (action === 'ban' && id) banUser(id)
+      else if (action === 'unban' && id) unbanUser(id)
+      else if (action === 'delete' && id) deleteUser(id)
+      else if (action === 'assign-dev' && id) assignBadge(id, 'developer', 'Developer')
+      else if (action === 'assign-vip' && id) assignBadge(id, 'vip', 'VIP')
+      else if (action === 'remove-badge' && id && badgeId) removeBadge(id, badgeId)
     })
-  })
+  }
 
   connectAdminSSE()
   switchTab('overview')
@@ -553,14 +573,14 @@ function filterUsers(query) {
     const dateStr = new Date(u.lastActiveAt).toLocaleString()
     const statusHtml = u.banned ? '<span class="status-banned">Banned</span>' : '<span class="status-active">Active</span>'
     const actionBtn = u.banned 
-      ? `<button class="btn-glass" onclick="unbanUser('${u.id}')">Unban</button>`
-      : `<button class="btn-danger" onclick="banUser('${u.id}')">Ban</button>`
-    const detailsBtn = `<button class="btn-secondary" onclick="openUserModal('${u.id}')">Details</button>`
+      ? `<button class="btn-glass" data-action="unban" data-id="${u.id}">Unban</button>`
+      : `<button class="btn-danger" data-action="ban" data-id="${u.id}">Ban</button>`
+    const detailsBtn = `<button class="btn-secondary" data-action="details" data-id="${u.id}">Details</button>`
     
     tbody.innerHTML += `
       <tr>
         <td>${platHtml}</td>
-        <td style="font-family: monospace; color: var(--neon-blue); cursor: pointer;" onclick="openUserModal('${u.id}')">${u.id}</td>
+        <td style="font-family: monospace; color: var(--neon-blue); cursor: pointer;" data-action="details" data-id="${u.id}">${u.id}</td>
         <td>${u.name}</td>
         <td style="color: var(--text-muted)">${dateStr}</td>
         <td>${statusHtml}</td>
