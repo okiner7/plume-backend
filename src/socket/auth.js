@@ -16,8 +16,11 @@ function socketAuthMiddleware(socket, next) {
     token = socket.handshake.query.token
   }
 
+  // If no token, allow anonymous connection for ping / server status
   if (!token || typeof token !== 'string') {
-    return next(new Error('Authentication error'))
+    socket.user = null
+    socket.userId = null
+    return next()
   }
 
   if (token.toLowerCase().startsWith('bearer ')) {
@@ -25,13 +28,17 @@ function socketAuthMiddleware(socket, next) {
   }
 
   if (!token) {
-    return next(new Error('Authentication error'))
+    socket.user = null
+    socket.userId = null
+    return next()
   }
 
   try {
     const decoded = verify(token)
     if (!decoded) {
-      return next(new Error('Authentication error'))
+      socket.user = null
+      socket.userId = null
+      return next()
     }
 
     socket.user = decoded
@@ -55,7 +62,10 @@ function socketAuthMiddleware(socket, next) {
 
     return next()
   } catch (err) {
-    return next(new Error('Authentication error'))
+    // On verification error, allow anonymous connection
+    socket.user = null
+    socket.userId = null
+    return next()
   }
 }
 
