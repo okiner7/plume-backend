@@ -69,8 +69,14 @@ async function incrementUserStat(userIdOrProviderId, statField) {
 }
 
 async function setBanStatus(id, banned) {
-  const user = await db.users.findOne({ $or: [{ providerId: id }, { userId: id }] })
-  if (!user) throw new Error('User not found')
+  if (!db.users) throw new Error('Database not initialized')
+  let user = await db.users.findOne({ $or: [{ providerId: id }, { userId: id }, { _id: id }] })
+  if (!user) {
+    const parts = String(id).split('_')
+    const pid = parts.length > 1 ? parts.slice(1).join('_') : id
+    user = await db.users.findOne({ $or: [{ providerId: pid }, { userId: id }] })
+  }
+  if (!user) throw new Error(`User "${id}" not found`)
   await update(user._id, { banned })
 }
 
@@ -131,7 +137,7 @@ async function countActiveUsers() {
 }
 
 async function getBadges(providerId) {
-  const user = await findOne(providerId)
+  const user = await findOne(providerId) || await db.users.findOne({ $or: [{ providerId }, { userId: providerId }, { _id: providerId }] })
   return user ? user.badges || [] : []
 }
 
@@ -171,24 +177,35 @@ async function countAllUsers() {
 }
 
 async function getRecentUsers(limit = 50) {
+  if (!db.users) return []
   const docs = await db.users.find({}).sort({ lastActiveAt: -1 }).limit(limit).toArray()
   return docs.map(doc => ({
-    id: doc.providerId,
+    id: doc.providerId || doc.userId || String(doc._id),
+    providerId: doc.providerId || String(doc._id),
+    userId: doc.userId,
+    _id: String(doc._id),
     name: doc.name || 'Anonymous',
     platform: doc.lastPlatform || 'unknown',
-    lastActiveAt: doc.lastActiveAt,
+    lastActiveAt: doc.lastActiveAt || doc.createdAt || new Date(),
     banned: !!doc.banned
   }))
 }
 
 async function getAllUserIds() {
-  const docs = await db.users.find({}).project({ providerId: 1 }).toArray()
-  return docs.map(doc => doc.providerId)
+  if (!db.users) return []
+  const docs = await db.users.find({}).project({ providerId: 1, userId: 1, _id: 1 }).toArray()
+  return docs.map(doc => doc.providerId || doc.userId || String(doc._id))
 }
 
 async function deleteUser(id) {
-  const user = await db.users.findOne({ $or: [{ providerId: id }, { userId: id }] })
-  if (!user) throw new Error('User not found')
+  if (!db.users) throw new Error('Database not initialized')
+  let user = await db.users.findOne({ $or: [{ providerId: id }, { userId: id }, { _id: id }] })
+  if (!user) {
+    const parts = String(id).split('_')
+    const pid = parts.length > 1 ? parts.slice(1).join('_') : id
+    user = await db.users.findOne({ $or: [{ providerId: pid }, { userId: id }] })
+  }
+  if (!user) throw new Error(`User "${id}" not found`)
   
   return await db.users.deleteOne({ _id: user._id })
 }

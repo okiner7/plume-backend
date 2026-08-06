@@ -1010,3 +1010,24 @@ document.getElementById('form-upload-update')?.addEventListener('submit', async 
   xhr.setRequestHeader('Authorization', `Bearer ${jwtToken}`)
   xhr.send(formData)
 })
+
+// Expose action handlers on global window object for inline HTML onclick compatibility
+window.openUserModal = openUserModal
+window.closeUserModal = closeUserModal
+window.banUser = banUser
+window.unbanUser = unbanUser
+window.deleteUser = deleteUser
+window.assignBadge = assignBadge
+window.removeBadge = removeBadge
+window.sendBroadcast = sendBroadcast
+window.sendBroadcastFromTab = sendBroadcastFromTab
+window.removeProxy = removeProxy
+window.resetProxies = resetProxies
+window.addProxy = addProxy
+window.fetchRecentUsers = fetchRecentUsers
+window.fetchProxies = fetchProxies
+window.fetchInsights = fetchInsights
+window.fetchApiStats = fetchApiStats
+window.fetchLogs = fetchLogs
+window.flushCache = flushCache
+window.restartServer = restartServer
