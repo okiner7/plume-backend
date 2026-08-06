@@ -17,6 +17,22 @@ function initDashboard() {
   document.getElementById('btn-flush-cache')?.addEventListener('click', flushCache)
   document.getElementById('btn-restart-server')?.addEventListener('click', restartServer)
   
+  // Event Delegation & Direct Listeners for Nav Tabs
+  document.querySelector('.nav-tabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-btn')
+    if (btn) {
+      const tabId = btn.getAttribute('data-tab')
+      if (tabId) switchTab(tabId)
+    }
+  })
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      const tabId = e.currentTarget.getAttribute('data-tab')
+      if (tabId) switchTab(tabId)
+    }
+  })
+
   // Event Delegation for User Table
   const usersTbody = document.getElementById('users-tbody')
   if (usersTbody) {
@@ -1032,6 +1048,7 @@ document.getElementById('form-upload-update')?.addEventListener('submit', async 
 })
 
 // Expose action handlers on global window object for inline HTML onclick compatibility
+window.switchTab = switchTab
 window.openUserModal = openUserModal
 window.closeUserModal = closeUserModal
 window.banUser = banUser
